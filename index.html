@@ -56,7 +56,12 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        // --- 1. KONFIGURASI FIREBASE ---
+        // --- 1. KONFIGURASI LOGO & FIREBASE ---
+        
+        // *** GANTIKAN URL INI DENGAN GAMBAR LOGO ANDA SENDIRI ***
+        // Boleh guna link internet, atau letak file "logo.png" dalam folder yang sama dan tulis "./logo.png"
+        const LOGO_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Coat_of_arms_of_Malaysia.svg/1200px-Coat_of_arms_of_Malaysia.svg.png"; 
+
         const firebaseConfig = {
             apiKey: "AIzaSyBU1n6OAmYxY_SjFuhYkop7C7CrFJja6Do",
             authDomain: "egerak-4f922.firebaseapp.com",
@@ -413,7 +418,10 @@
                         <div className="bg-blue-900 p-8 text-center relative overflow-hidden">
                             <div className="absolute top-0 left-0 w-full h-full bg-blue-800 opacity-20 transform -skew-y-6 origin-top-left"></div>
                             <div className="relative z-10">
-                                <div className="w-16 h-16 bg-white rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg"><Icons.MapPin className="text-blue-900 w-8 h-8" /></div>
+                                <div className="w-16 h-16 bg-white rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg">
+                                    {/* LOGO URL HERE */}
+                                    <img src={LOGO_URL} alt="Logo" className="w-full h-full object-contain p-1" />
+                                </div>
                                 <h1 className="text-2xl font-bold text-white tracking-wide">E-Gerak</h1>
                                 <p className="text-blue-200 text-sm mt-1">Pejabat Pendidikan Daerah Ranau</p>
                             </div>
