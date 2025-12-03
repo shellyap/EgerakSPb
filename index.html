@@ -1,583 +1,917 @@
-<!DOCTYPE html>
-<html lang="ms">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E-Gerak Tracker PPD Ranau</title>
+import React, { useState, useMemo } from 'react';
+import { 
+  User, Lock, MapPin, FileText, LogOut, CheckCircle, Clock, 
+  Menu, X, Plus, Search, BarChart3, Users, Building, 
+  Calendar, Filter, Download, FileSpreadsheet, Printer, ChevronRight, 
+  List, Edit3, Info, Trash2, AlertTriangle, Settings, AlertCircle, 
+  Trophy, PieChart, TrendingUp, RefreshCw, School, Building2, HelpCircle
+} from 'lucide-react';
+
+// --- DATA SIMULASI (MOCK DATA) ---
+const CURRENT_YEAR = new Date().getFullYear();
+
+const INITIAL_DATA = {
+  users: [
+    { id: 1, username: 'shell', password: 'shellyap', role: 'admin', name: 'Shell Yap', department: 'IT / Pengurusan' },
+    { id: 2, username: 'staff', password: '123', role: 'staff', name: 'En. Razak', department: 'Unit Pembangunan' },
+    { id: 3, username: 'guru', password: '123', role: 'staff', name: 'Pn. Siti', department: 'Unit Akademik' },
+    { id: 4, username: 'razak_double', password: '123', role: 'staff', name: 'En. Razak', department: 'Unit Pembangunan' } 
+  ],
+  logs: [
+    { id: 101, userId: 2, userName: 'En. Razak', type: 'Lawatan Tapak', location: 'SK Kilimu', date: `${CURRENT_YEAR}-10-24`, catatan: 'Memantau projek pembinaan blok baharu.' },
+    { id: 102, userId: 2, userName: 'En. Razak', type: 'Mesyuarat', location: 'PPD Kota Kinabalu', date: `${CURRENT_YEAR}-10-25`, catatan: 'Mesyuarat penyelarasan aset.' },
+    { id: 103, userId: 3, userName: 'Pn. Siti', type: 'Bengkel', location: 'SMK Ranau', date: `${CURRENT_YEAR}-10-24`, catatan: 'Bengkel KSSM Sains.' },
+    { id: 104, userId: 1, userName: 'Shell Yap', type: 'Urusan Rasmi', location: 'JPN Sabah', date: `${CURRENT_YEAR}-10-20`, catatan: 'Menghantar laporan bulanan.' },
+    { id: 105, userId: 2, userName: 'En. Razak', type: 'Pemantauan', location: 'SK Narawang', date: `${CURRENT_YEAR}-11-01`, catatan: 'Pemantauan kerosakan bumbung.' },
+    { id: 106, userId: 2, userName: 'En. Razak', type: 'Lawatan Bimbingan', location: 'SK Pekan', date: new Date().toISOString().split('T')[0], catatan: 'Bimbingan guru baharu.' },
+    { id: 107, userId: 3, userName: 'Pn. Siti', type: 'Lawatan Bimbingan', location: 'SK Kilimu', date: `${CURRENT_YEAR}-11-02`, catatan: 'Coaching & Mentoring Panitia Sains.' },
+    { id: 108, userId: 3, userName: 'Pn. Siti', type: 'Lawatan Bimbingan', location: 'SMK Mat Salleh', date: `${CURRENT_YEAR}-11-05`, catatan: 'Bimbingan PBD.' },
+  ],
+  // Updated Location Structure to Objects with Categories
+  locations: [
+    { name: 'PPD Ranau', category: 'Lain-lain' },
+    { name: 'JPN Sabah', category: 'Lain-lain' },
+    { name: 'PPD Kota Kinabalu', category: 'Lain-lain' },
+    { name: 'SK Pekan Ranau', category: 'Sekolah Rendah' },
+    { name: 'SK Kilimu', category: 'Sekolah Rendah' },
+    { name: 'SK Narawang', category: 'Sekolah Rendah' },
+    { name: 'SK Lohan', category: 'Sekolah Rendah' },
+    { name: 'SMK Ranau', category: 'Sekolah Menengah' },
+    { name: 'SMK Mat Salleh', category: 'Sekolah Menengah' }
+  ],
+  activityTypes: [
+    'Lawatan Bimbingan', 'Mesyuarat', 'Bengkel', 'Urusan Rasmi', 
+    'Pemantauan', 'Kunjung Bantu', 'Taklimat', 'Lawatan Tapak'
+  ]
+};
+
+// --- FUNGSI PEMBANTU ---
+const formatDate = (dateString) => {
+  if (!dateString) return '-';
+  const parts = dateString.split('-');
+  if (parts.length !== 3) return dateString;
+  const [year, month, day] = parts;
+  return `${day}/${month}/${year.slice(-2)}`;
+};
+
+const downloadCSV = (data, filename) => {
+  const headers = ["Tarikh", "Nama", "Tujuan", "Lokasi", "Catatan"];
+  const rows = data.map(row => [
+    formatDate(row.date),
+    row.userName, 
+    row.type, 
+    row.location, 
+    row.catatan || ''
+  ]);
+   
+  const csvContent = "data:text/csv;charset=utf-8," 
+    + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
     
-    <!-- 1. Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- 2. React & ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    
-    <!-- 3. Babel for JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
 
-    <style>
-        @media print {
-            .no-print { display: none !important; }
-            body { background: white; }
-            .print-container { box-shadow: none; border: none; }
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .animate-spin { animation: spin 1s linear infinite; }
-        .fade-in { animation: fadeIn 0.3s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    </style>
-</head>
-<body class="bg-slate-50 text-slate-900">
-    <div id="root"></div>
+// --- KOMPONEN UI ---
 
-    <script type="text/babel">
-        // --- ERROR BOUNDARY ---
-        window.onerror = function(message, source, lineno, colno, error) {
-            console.error("Global Error:", error);
-        };
+const SuccessModal = ({ isOpen, onClose, message }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-xl max-w-sm w-full p-6 shadow-2xl transform scale-100 transition-transform">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-8 h-8 text-green-600" />
+          </div>
+          <h3 className="text-xl font-bold text-slate-800 mb-2">Berjaya!</h3>
+          <p className="text-slate-600 mb-6">{message}</p>
+          <button onClick={onClose} className="w-full bg-blue-900 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition-colors shadow-lg">Tutup</button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
-        // --- 1. DATA MULA (INITIAL DATA) ---
-        // Anda boleh mengedit data pengguna atau log di sini
-        const CURRENT_YEAR = new Date().getFullYear();
+const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, itemName, isResetPassword = false }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className={`bg-white rounded-xl max-w-sm w-full p-6 shadow-2xl transform scale-100 transition-transform border ${isResetPassword ? 'border-orange-100' : 'border-red-100'}`}>
+        <div className="text-center">
+          <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${isResetPassword ? 'bg-orange-100' : 'bg-red-100'}`}>
+            {isResetPassword ? <RefreshCw className="w-8 h-8 text-orange-600" /> : <AlertCircle className="w-8 h-8 text-red-600" />}
+          </div>
+          <h3 className="text-xl font-bold text-slate-800 mb-2">{isResetPassword ? 'Reset Kata Laluan?' : 'Pengesahan Padam'}</h3>
+          <p className="text-slate-600 mb-6">
+            {isResetPassword 
+              ? <span>Kata laluan untuk <strong>"{itemName}"</strong> akan ditetapkan semula kepada <strong>"123"</strong>.</span>
+              : <span>Adakah anda pasti mahu memadam <strong>"{itemName}"</strong>?<br/><span className="text-xs text-red-500">Tindakan ini tidak boleh dikembalikan.</span></span>
+            }
+          </p>
+          <div className="flex space-x-3">
+            <button onClick={onClose} className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-lg font-semibold hover:bg-slate-200 transition-colors">Batal</button>
+            <button onClick={onConfirm} className={`flex-1 text-white py-2.5 rounded-lg font-semibold transition-colors shadow-lg ${isResetPassword ? 'bg-orange-600 hover:bg-orange-700' : 'bg-red-600 hover:bg-red-700'}`}>{isResetPassword ? 'Ya, Reset' : 'Ya, Padam'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
-        const INITIAL_DATA = {
-            users: [
-                { id: 1, username: 'shell', password: 'shellyap', role: 'admin', name: 'Shell Yap', department: 'IT / Pengurusan' },
-                { id: 2, username: 'staff', password: '123', role: 'staff', name: 'En. Razak', department: 'Unit Pembangunan' },
-                { id: 3, username: 'guru', password: '123', role: 'staff', name: 'Pn. Siti', department: 'Unit Akademik' }
-            ],
-            logs: [
-                { id: 101, userId: 2, userName: 'En. Razak', type: 'Lawatan Tapak', location: 'SK Kilimu', date: `${CURRENT_YEAR}-10-24`, catatan: 'Memantau projek pembinaan blok baharu.' },
-                { id: 102, userId: 2, userName: 'En. Razak', type: 'Mesyuarat', location: 'PPD Kota Kinabalu', date: `${CURRENT_YEAR}-10-25`, catatan: 'Mesyuarat penyelarasan aset.' },
-                { id: 103, userId: 3, userName: 'Pn. Siti', type: 'Bengkel', location: 'SMK Ranau', date: `${CURRENT_YEAR}-10-24`, catatan: 'Bengkel KSSM Sains.' },
-                { id: 104, userId: 1, userName: 'Shell Yap', type: 'Urusan Rasmi', location: 'JPN Sabah', date: `${CURRENT_YEAR}-10-20`, catatan: 'Menghantar laporan bulanan.' },
-                { id: 105, userId: 2, userName: 'En. Razak', type: 'Pemantauan', location: 'SK Narawang', date: `${CURRENT_YEAR}-11-01`, catatan: 'Pemantauan kerosakan bumbung.' },
-                { id: 106, userId: 2, userName: 'En. Razak', type: 'Lawatan Bimbingan', location: 'SK Pekan', date: new Date().toISOString().split('T')[0], catatan: 'Bimbingan guru baharu.' },
-                { id: 107, userId: 3, userName: 'Pn. Siti', type: 'Lawatan Bimbingan', location: 'SK Kilimu', date: `${CURRENT_YEAR}-11-02`, catatan: 'Coaching & Mentoring Panitia Sains.' },
-                { id: 108, userId: 3, userName: 'Pn. Siti', type: 'Lawatan Bimbingan', location: 'SMK Mat Salleh', date: `${CURRENT_YEAR}-11-05`, catatan: 'Bimbingan PBD.' },
-            ],
-            locations: [
-                {id: 1, name: 'PPD Ranau'}, {id: 2, name: 'SK Pekan Ranau'}, {id: 3, name: 'SK Kilimu'}, 
-                {id: 4, name: 'SMK Ranau'}, {id: 5, name: 'SMK Mat Salleh'}, {id: 6, name: 'JPN Sabah'}
-            ],
-            activityTypes: [
-                {id: 1, name: 'Lawatan Bimbingan'}, {id: 2, name: 'Mesyuarat'}, {id: 3, name: 'Bengkel'}, 
-                {id: 4, name: 'Urusan Rasmi'}, {id: 5, name: 'Pemantauan'}
-            ]
-        };
+const ConicPieChart = ({ data, totalLabel = "Rekod" }) => {
+  const total = data.reduce((acc, curr) => acc + curr.value, 0);
+  if (total === 0) return <div className="flex items-center justify-center h-48 text-slate-400 bg-slate-50 rounded-full w-48 mx-auto text-sm bg-slate-50">Tiada Data</div>;
 
-        // --- 2. ICONS ---
-        const IconBase = ({ children, className }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{children}</svg>
-        );
+  let currentAngle = 0;
+  const gradientString = data.map(item => {
+    const start = currentAngle;
+    const percentage = (item.value / total) * 100;
+    currentAngle += percentage;
+    return `${item.color} ${start}% ${currentAngle}%`;
+  }).join(', ');
 
-        const MapPin = ({className}) => <IconBase className={className}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></IconBase>;
-        const User = ({className}) => <IconBase className={className}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></IconBase>;
-        const Lock = ({className}) => <IconBase className={className}><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></IconBase>;
-        const LogOut = ({className}) => <IconBase className={className}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></IconBase>;
-        const Plus = ({className}) => <IconBase className={className}><path d="M5 12h14"/><path d="M12 5v14"/></IconBase>;
-        const Search = ({className}) => <IconBase className={className}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></IconBase>;
-        const Filter = ({className}) => <IconBase className={className}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></IconBase>;
-        const FileText = ({className}) => <IconBase className={className}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></IconBase>;
-        const CheckCircle = ({className}) => <IconBase className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></IconBase>;
-        const Trash2 = ({className}) => <IconBase className={className}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></IconBase>;
-        const AlertCircle = ({className}) => <IconBase className={className}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></IconBase>;
-        const CalendarIcon = ({className}) => <IconBase className={className}><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></IconBase>;
-        const BarChart3 = ({className}) => <IconBase className={className}><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></IconBase>;
-        const PieChart = ({className}) => <IconBase className={className}><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></IconBase>;
-        const Settings = ({className}) => <IconBase className={className}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></IconBase>;
-        const Trophy = ({className}) => <IconBase className={className}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 1 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></IconBase>;
-        const TrendingUp = ({className}) => <IconBase className={className}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></IconBase>;
-        const ListIcon = ({className}) => <IconBase className={className}><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></IconBase>;
-        const Edit3 = ({className}) => <IconBase className={className}><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></IconBase>;
-        const Info = ({className}) => <IconBase className={className}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></IconBase>;
-        const AlertTriangle = ({className}) => <IconBase className={className}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></IconBase>;
-        const Printer = ({className}) => <IconBase className={className}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></IconBase>;
-        const FileSpreadsheet = ({className}) => <IconBase className={className}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2"/><path d="M8 17h2"/><path d="M14 13h2"/><path d="M14 17h2"/></IconBase>;
-        const Menu = ({className}) => <IconBase className={className}><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></IconBase>;
-        const X = ({className}) => <IconBase className={className}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></IconBase>;
-        const UsersIcon = ({className}) => <IconBase className={className}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></IconBase>;
+  return (
+    <div className="flex flex-col items-center">
+      <div className="w-48 h-48 rounded-full shadow-lg mb-6 relative transition-all duration-500" style={{ background: `conic-gradient(${gradientString})` }}>
+        <div className="absolute inset-0 m-auto w-32 h-32 bg-white rounded-full flex items-center justify-center shadow-inner">
+           <div className="text-center">
+             <span className="text-2xl font-bold text-slate-800 block">{total}</span>
+             <span className="text-xs text-slate-500 uppercase tracking-wide">{totalLabel}</span>
+           </div>
+        </div>
+      </div>
+      <div className="w-full space-y-2 px-4">
+        {data.map((item, idx) => (
+          <div key={idx} className="flex justify-between items-center text-sm border-b border-slate-50 pb-1 last:border-0">
+            <div className="flex items-center">
+              <span className="w-3 h-3 rounded-full mr-2 shadow-sm" style={{ backgroundColor: item.color }}></span>
+              <span className="text-slate-600 truncate max-w-[120px]" title={item.label}>{item.label}</span>
+            </div>
+            <span className="font-semibold text-slate-800">{Math.round((item.value/total)*100)}% <span className="text-slate-400 text-xs font-normal">({item.value})</span></span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
-        // --- 3. HELPER FUNCTIONS ---
-        const formatDate = (dateString) => {
-            if (!dateString) return '-';
-            const parts = dateString.split('-');
-            if (parts.length !== 3) return dateString;
-            const [year, month, day] = parts;
-            return `${day}/${month}/${year.slice(-2)}`;
-        };
+// --- LAMAN LOG MASUK ---
+const LoginPage = ({ onLogin, onRegister, error, successMsg }) => {
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [roleTab, setRoleTab] = useState('staff');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [department, setDepartment] = useState('');
 
-        const downloadCSV = (data, filename) => {
-            const headers = ["Tarikh", "Nama", "Tujuan", "Lokasi", "Catatan"];
-            const rows = data.map(row => [
-                formatDate(row.date),
-                row.userName, 
-                row.type, 
-                row.location, 
-                (row.catatan || '').replace(/,/g, ' ')
-            ]);
-            
-            const csvContent = "data:text/csv;charset=utf-8," 
-                + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-                
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", filename);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        };
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (isRegistering) {
+      onRegister({ username, password, name: fullName, department, role: 'staff' });
+      setIsRegistering(false); setUsername(''); setPassword('');
+    } else {
+      onLogin(username, password, roleTab);
+    }
+  };
 
-        // --- 4. REACT COMPONENTS ---
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100">
+        <div className="bg-blue-900 p-8 text-center relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-full bg-blue-800 opacity-20 transform -skew-y-6 origin-top-left"></div>
+          <div className="relative z-10">
+            <div className="w-16 h-16 bg-white rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg">
+              <MapPin className="text-blue-900 w-8 h-8" />
+            </div>
+            <h1 className="text-2xl font-bold text-white tracking-wide">E-Gerak</h1>
+            <p className="text-blue-200 text-sm mt-1">Pejabat Pendidikan Daerah Ranau</p>
+          </div>
+        </div>
+        <div className="p-8">
+          {!isRegistering && (
+            <div className="flex bg-slate-100 rounded-lg p-1 mb-6">
+              <button onClick={() => setRoleTab('staff')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all duration-200 ${roleTab === 'staff' ? 'bg-white text-blue-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Staf / Pegawai</button>
+              <button onClick={() => setRoleTab('admin')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all duration-200 ${roleTab === 'admin' ? 'bg-white text-blue-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Admin / Pentadbir</button>
+            </div>
+          )}
+          {isRegistering && (<div className="mb-6 text-center"><h2 className="text-lg font-bold text-slate-800">Pendaftaran Pengguna Baru</h2><p className="text-xs text-slate-500">Sila isi maklumat untuk akaun kali pertama.</p></div>)}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {isRegistering && (
+              <>
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Nama Penuh</label><input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value.toUpperCase())} className="block w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-slate-50" /></div>
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Unit / Sekolah</label><input type="text" required value={department} onChange={(e) => setDepartment(e.target.value)} className="block w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-slate-50" /></div>
+              </>
+            )}
+            <div><label className="block text-sm font-medium text-slate-700 mb-1">ID Pengguna</label><input type="text" required value={username} onChange={(e) => setUsername(e.target.value)} className="block w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-slate-50" placeholder={roleTab === 'admin' ? "admin" : "staff"} /></div>
+            <div><label className="block text-sm font-medium text-slate-700 mb-1">Kata Laluan</label><input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="block w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-slate-50" placeholder="•••••••" /></div>
+            {error && <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg flex items-center animate-pulse"><span className="mr-2">⚠️</span> {error}</div>}
+            {successMsg && !isRegistering && <div className="bg-green-50 text-green-600 text-sm p-3 rounded-lg flex items-center"><span className="mr-2">✅</span> {successMsg}</div>}
+            <button type="submit" className="w-full bg-blue-900 text-white py-3 rounded-lg font-semibold shadow-md hover:bg-blue-800 transition-all transform hover:-translate-y-0.5">{isRegistering ? 'Daftar Akaun' : 'Log Masuk'}</button>
+          </form>
+          <div className="mt-6 text-center pt-4 border-t border-slate-100">
+             {!isRegistering ? (<p className="text-sm text-slate-600">Pengguna kali pertama?{' '}<button onClick={() => { setIsRegistering(true); setRoleTab('staff'); setError(''); }} className="text-blue-600 font-bold hover:underline focus:outline-none">Daftar di sini</button></p>) : (<button onClick={() => setIsRegistering(false)} className="text-sm text-blue-600 hover:text-blue-800 font-medium">← Kembali ke Log Masuk</button>)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
-        const SuccessModal = ({ isOpen, onClose, message }) => {
-            if (!isOpen) return null;
-            return (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl max-w-sm w-full p-6 shadow-2xl">
-                        <div className="text-center">
-                            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <CheckCircle className="w-8 h-8 text-green-600" />
-                            </div>
-                            <h3 className="text-xl font-bold text-slate-800 mb-2">Berjaya!</h3>
-                            <p className="text-slate-600 mb-6">{message}</p>
-                            <button onClick={onClose} className="w-full bg-blue-900 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition-colors shadow-lg">Tutup</button>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
+// --- KOMPONEN STAF ---
+const StaffEntryTab = ({ onSubmit, availableLocations, availableTypes }) => {
+  const [formData, setFormData] = useState({ date: new Date().toISOString().split('T')[0], location: '', type: '', catatan: '' });
+  const [useCustomType, setUseCustomType] = useState(false);
+  
+  // NEW STATES FOR CATEGORY LOGIC
+  const [locationCategory, setLocationCategory] = useState('Sekolah Rendah');
+  const [useCustomLocation, setUseCustomLocation] = useState(false);
+  
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-        const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, itemName }) => {
-            if (!isOpen) return null;
-            return (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl max-w-sm w-full p-6 shadow-2xl border border-red-100">
-                        <div className="text-center">
-                            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <AlertCircle className="w-8 h-8 text-red-600" />
-                            </div>
-                            <h3 className="text-xl font-bold text-slate-800 mb-2">Pengesahan Padam</h3>
-                            <p className="text-slate-600 mb-6">Adakah anda pasti mahu memadam <strong>"{itemName}"</strong>?<br/><span className="text-xs text-red-500">Tindakan ini tidak boleh dikembalikan.</span></p>
-                            <div className="flex space-x-3">
-                                <button onClick={onClose} className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-lg font-semibold hover:bg-slate-200">Batal</button>
-                                <button onClick={onConfirm} className="flex-1 bg-red-600 text-white py-2.5 rounded-lg font-semibold hover:bg-red-700 shadow-lg">Ya, Padam</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
+  // Filter locations based on category
+  const filteredLocations = availableLocations
+    .filter(loc => loc.category === locationCategory)
+    .sort((a,b) => a.name.localeCompare(b.name));
 
-        const ConicPieChart = ({ data, totalLabel = "Rekod" }) => {
-            const total = data.reduce((acc, curr) => acc + curr.value, 0);
-            if (total === 0) return <div className="flex items-center justify-center h-48 text-slate-400 bg-slate-50 rounded-full w-48 mx-auto text-sm">Tiada Data</div>;
+  return (
+    <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-slate-100 p-6 md:p-8">
+      <div className="flex items-center space-x-3 mb-6"><div className="bg-blue-100 p-2 rounded-lg"><Plus className="w-6 h-6 text-blue-700" /></div><div><h2 className="text-xl font-bold text-slate-800">Daftar Pergerakan Harian</h2><p className="text-slate-500 text-sm">Sila isi maklumat pergerakan anda.</p></div></div>
+      <form onSubmit={(e) => { e.preventDefault(); onSubmit(formData); setFormData({...formData, catatan: '', location: '', type: ''}); }} className="space-y-6">
+        
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">Tarikh Pergerakan</label>
+          <input type="date" name="date" required value={formData.date} onChange={handleChange} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+        </div>
 
-            let currentAngle = 0;
-            const gradientString = data.map(item => {
-                const start = currentAngle;
-                const percentage = (item.value / total) * 100;
-                currentAngle += percentage;
-                return `${item.color} ${start}% ${currentAngle}%`;
-            }).join(', ');
+        {/* SECTION LOKASI BARU */}
+        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-4">
+            <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">1. Kategori Lokasi</label>
+                <select 
+                    value={locationCategory} 
+                    onChange={(e) => {
+                        setLocationCategory(e.target.value);
+                        setUseCustomLocation(false);
+                        setFormData(prev => ({ ...prev, location: '' }));
+                    }}
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500"
+                >
+                    <option value="Sekolah Rendah">Sekolah Rendah</option>
+                    <option value="Sekolah Menengah">Sekolah Menengah</option>
+                    <option value="Lain-lain">Lain-lain</option>
+                </select>
+            </div>
 
-            return (
-                <div className="flex flex-col items-center">
-                    <div className="w-48 h-48 rounded-full shadow-lg mb-6 relative" style={{ background: `conic-gradient(${gradientString})` }}>
-                        <div className="absolute inset-0 m-auto w-32 h-32 bg-white rounded-full flex items-center justify-center shadow-inner">
-                            <div className="text-center">
-                                <span className="text-2xl font-bold text-slate-800 block">{total}</span>
-                                <span className="text-xs text-slate-500 uppercase tracking-wide">{totalLabel}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="w-full space-y-2 px-4">
-                        {data.map((item, idx) => (
-                            <div key={idx} className="flex justify-between items-center text-sm border-b border-slate-50 pb-1 last:border-0">
-                                <div className="flex items-center">
-                                    <span className="w-3 h-3 rounded-full mr-2 shadow-sm" style={{ backgroundColor: item.color }}></span>
-                                    <span className="text-slate-600 truncate max-w-[120px]" title={item.label}>{item.label}</span>
-                                </div>
-                                <span className="font-semibold text-slate-800">{Math.round((item.value/total)*100)}% <span className="text-slate-400 text-xs font-normal">({item.value})</span></span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            );
-        };
-
-        const LoginPage = ({ onLogin, onRegister, error }) => {
-            const [isRegistering, setIsRegistering] = React.useState(false);
-            const [roleTab, setRoleTab] = React.useState('staff');
-            const [username, setUsername] = React.useState('');
-            const [password, setPassword] = React.useState('');
-            const [fullName, setFullName] = React.useState('');
-            const [department, setDepartment] = React.useState('');
-
-            const handleSubmit = (e) => {
-                e.preventDefault();
-                if (isRegistering) {
-                    onRegister({ username, password, name: fullName, department, role: 'staff' });
-                    setIsRegistering(false); setUsername(''); setPassword('');
-                } else {
-                    onLogin(username, password, roleTab);
-                }
-            };
-
-            return (
-                <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
-                    <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100">
-                        <div className="bg-blue-900 p-8 text-center relative">
-                            <div className="absolute top-0 left-0 w-full h-full bg-blue-800 opacity-20 transform -skew-y-6 origin-top-left"></div>
-                            <div className="relative z-10">
-                                <div className="w-16 h-16 bg-white rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg">
-                                    <MapPin className="text-blue-900 w-8 h-8" />
-                                </div>
-                                <h1 className="text-2xl font-bold text-white tracking-wide">E-Gerak</h1>
-                                <p className="text-blue-200 text-sm mt-1">Pejabat Pendidikan Daerah Ranau</p>
-                            </div>
-                        </div>
-                        <div className="p-8">
-                            {!isRegistering && (
-                                <div className="flex bg-slate-100 rounded-lg p-1 mb-6">
-                                    <button onClick={() => setRoleTab('staff')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${roleTab === 'staff' ? 'bg-white text-blue-900 shadow-sm' : 'text-slate-500'}`}>Staf / Pegawai</button>
-                                    <button onClick={() => setRoleTab('admin')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${roleTab === 'admin' ? 'bg-white text-blue-900 shadow-sm' : 'text-slate-500'}`}>Admin / Pentadbir</button>
-                                </div>
-                            )}
-                            {isRegistering && (<div className="mb-6 text-center"><h2 className="text-lg font-bold text-slate-800">Pendaftaran Pengguna Baru</h2><p className="text-xs text-slate-500">Sila isi maklumat untuk akaun kali pertama.</p></div>)}
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                {isRegistering && (
-                                    <>
-                                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Nama Penuh</label><input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value.toUpperCase())} className="block w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
-                                        <div><label className="block text-sm font-medium text-slate-700 mb-1">Unit / Sekolah</label><input type="text" required value={department} onChange={(e) => setDepartment(e.target.value)} className="block w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
-                                    </>
-                                )}
-                                <div><label className="block text-sm font-medium text-slate-700 mb-1">ID Pengguna</label><input type="text" required value={username} onChange={(e) => setUsername(e.target.value)} className="block w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder={roleTab === 'admin' ? "admin" : "staff"} /></div>
-                                <div><label className="block text-sm font-medium text-slate-700 mb-1">Kata Laluan</label><input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="block w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="•••••••" /></div>
-                                {error && <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg flex items-center animate-pulse"><span className="mr-2">⚠️</span> {error}</div>}
-                                <button type="submit" className="w-full bg-blue-900 text-white py-3 rounded-lg font-semibold shadow-md hover:bg-blue-800 hover:-translate-y-0.5 transition-transform">{isRegistering ? 'Daftar Akaun' : 'Log Masuk'}</button>
-                            </form>
-                            <div className="mt-6 text-center pt-4 border-t border-slate-100">
-                                {!isRegistering ? (<p className="text-sm text-slate-600">Pengguna kali pertama?{' '}<button onClick={() => { setIsRegistering(true); setRoleTab('staff'); }} className="text-blue-600 font-bold hover:underline">Daftar di sini</button></p>) : (<button onClick={() => setIsRegistering(false)} className="text-sm text-blue-600 hover:text-blue-800 font-medium">← Kembali ke Log Masuk</button>)}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        const StaffEntryTab = ({ onSubmit, availableLocations, availableTypes }) => {
-            const [formData, setFormData] = React.useState({ date: new Date().toISOString().split('T')[0], location: '', type: '', catatan: '' });
-            const [useCustomLocation, setUseCustomLocation] = React.useState(false);
-            const [useCustomType, setUseCustomType] = React.useState(false);
-            const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
-
-            return (
-                <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-slate-100 p-6 md:p-8">
-                    <div className="flex items-center space-x-3 mb-6"><div className="bg-blue-100 p-2 rounded-lg"><Plus className="w-6 h-6 text-blue-700" /></div><div><h2 className="text-xl font-bold text-slate-800">Daftar Pergerakan Harian</h2><p className="text-slate-500 text-sm">Sila isi maklumat pergerakan anda.</p></div></div>
-                    <form onSubmit={(e) => { e.preventDefault(); onSubmit(formData); setFormData({...formData, catatan: '', location: '', type: ''}); }} className="space-y-6">
-                        <div><label className="block text-sm font-medium text-slate-700 mb-2">Tarikh Pergerakan</label><input type="date" name="date" required value={formData.date} onChange={handleChange} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
-                        <div><label className="block text-sm font-medium text-slate-700 mb-2">Lokasi / Tempat</label><div className="flex gap-2"><div className="relative w-full">{useCustomLocation ? (<input type="text" name="location" required value={formData.location} onChange={handleChange} placeholder="Sila taip lokasi baru..." className="w-full px-4 py-2.5 border border-slate-300 rounded-lg" />) : (<select name="location" required value={formData.location} onChange={handleChange} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg appearance-none bg-white" ><option value="">Pilih Lokasi...</option>{availableLocations.map((loc, idx) => (<option key={idx} value={loc.name || loc}>{loc.name || loc}</option>))}</select>)}</div><button type="button" onClick={() => { setUseCustomLocation(!useCustomLocation); setFormData({...formData, location: ''}); }} className="px-3 bg-slate-100 rounded-lg border">{useCustomLocation ? <ListIcon className="w-5 h-5"/> : <Plus className="w-5 h-5"/>}</button></div></div>
-                        <div><label className="block text-sm font-medium text-slate-700 mb-2">Perkara / Tujuan</label><div className="flex gap-2"><div className="relative w-full">{useCustomType ? (<input type="text" name="type" required value={formData.type} onChange={handleChange} placeholder="Sila taip tujuan baru..." className="w-full px-4 py-2.5 border border-slate-300 rounded-lg" />) : (<select name="type" required value={formData.type} onChange={handleChange} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg appearance-none bg-white" ><option value="">Pilih Tujuan...</option>{availableTypes.map((type, idx) => (<option key={idx} value={type.name || type}>{type.name || type}</option>))}</select>)}</div><button type="button" onClick={() => { setUseCustomType(!useCustomType); setFormData({...formData, type: ''}); }} className="px-3 bg-slate-100 rounded-lg border">{useCustomType ? <ListIcon className="w-5 h-5"/> : <Plus className="w-5 h-5"/>}</button></div></div>
-                        <div><label className="block text-sm font-medium text-slate-700 mb-2">Catatan</label><textarea name="catatan" rows="3" value={formData.catatan} onChange={handleChange} placeholder="Catatan tambahan..." className="w-full px-4 py-2.5 border border-slate-300 rounded-lg" ></textarea></div>
-                        <div className="pt-4 border-t border-slate-100"><button type="submit" className="w-full bg-blue-900 text-white py-3 rounded-lg font-bold shadow-md hover:bg-blue-800 flex justify-center items-center space-x-2"><CheckCircle className="w-5 h-5" /><span>Hantar Rekod</span></button></div>
-                    </form>
-                </div>
-            );
-        };
-
-        const StaffFilterTab = ({ logs, combinedLocations, combinedActivityTypes }) => {
-            const [filterDate, setFilterDate] = React.useState('');
-            const [filterPlace, setFilterPlace] = React.useState('');
-            const [filterType, setFilterType] = React.useState('');
-            const now = new Date();
-            const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-            const isFilterActive = filterDate || filterPlace || filterType;
-            const filteredLogs = logs.filter(log => {
-                if (!isFilterActive) return log.date.startsWith(currentMonth);
-                return (filterDate ? log.date === filterDate : true) && (filterPlace ? log.location === filterPlace : true) && (filterType ? log.type === filterType : true);
-            });
-
-            return (
-                <div className="space-y-6">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><Filter className="w-5 h-5 mr-2 text-blue-600" /> Saring & Cari Rekod</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm" />
-                            <select value={filterPlace} onChange={(e) => setFilterPlace(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm"><option value="">Semua Lokasi</option>{combinedLocations.map(l => <option key={l} value={l}>{l}</option>)}</select>
-                            <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm"><option value="">Semua Perkara</option>{combinedActivityTypes.map(t => <option key={t} value={t}>{t}</option>)}</select>
-                        </div>
-                        <div className="mt-4 flex justify-end"><button onClick={() => { setFilterDate(''); setFilterPlace(''); setFilterType(''); }} className="text-sm text-red-500 hover:text-red-700 underline">Kosongkan Saringan</button></div>
-                    </div>
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-                        {!isFilterActive && (<div className="bg-blue-50 px-6 py-2 text-xs text-blue-700 border-b border-blue-100 flex items-center"><Info className="w-4 h-4 mr-2"/><span>Memaparkan rekod bulan semasa ({currentMonth}).</span></div>)}
-                        <div className="overflow-x-auto"><table className="w-full text-sm text-left text-slate-600"><thead className="text-xs text-slate-500 uppercase bg-slate-50"><tr><th className="px-6 py-3">Tarikh</th><th className="px-6 py-3">Lokasi</th><th className="px-6 py-3">Tujuan</th><th className="px-6 py-3">Catatan</th></tr></thead><tbody>{filteredLogs.length > 0 ? filteredLogs.map((log) => (<tr key={log.id} className="border-b hover:bg-slate-50"><td className="px-6 py-4 font-medium">{formatDate(log.date)}</td><td className="px-6 py-4">{log.location}</td><td className="px-6 py-4">{log.type}</td><td className="px-6 py-4 italic text-slate-500">{log.catatan || '-'}</td></tr>)) : (<tr><td colSpan="4" className="px-6 py-8 text-center text-slate-400">Tiada rekod ditemui.</td></tr>)}</tbody></table></div>
-                    </div>
-                </div>
-            );
-        };
-
-        const StaffReportTab = ({ logs }) => {
-            const [selectedMonth, setSelectedMonth] = React.useState(new Date().toISOString().slice(0, 7));
-            const monthlyLogs = logs.filter(log => log.date.startsWith(selectedMonth));
-            return (
-                <div className="space-y-6">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
-                        <div><h3 className="text-lg font-bold text-slate-800">Laporan Bulanan</h3><p className="text-slate-500 text-sm">Pilih bulan untuk melihat dan memuat turun rekod.</p></div>
-                        <div className="flex items-center space-x-2"><CalendarIcon className="w-5 h-5 text-slate-400" /><input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500" /></div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <button onClick={() => downloadCSV(monthlyLogs, `Log_Pergerakan_${selectedMonth}.csv`)} className="flex items-center justify-center space-x-2 bg-green-600 text-white p-4 rounded-xl shadow-sm hover:bg-green-700 transition-colors"><FileSpreadsheet className="w-6 h-6" /><div className="text-left"><div className="font-bold">Muat Turun Excel (CSV)</div><div className="text-xs text-green-100">Format hamparan standard</div></div></button>
-                        <button onClick={() => window.print()} className="flex items-center justify-center space-x-2 bg-slate-700 text-white p-4 rounded-xl shadow-sm hover:bg-slate-800 transition-colors"><Printer className="w-6 h-6" /><div className="text-left"><div className="font-bold">Cetak / Simpan PDF</div><div className="text-xs text-slate-300">Menggunakan pencetak sistem</div></div></button>
-                    </div>
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden print:shadow-none print:border-none">
-                        <div className="p-4 bg-slate-50 border-b border-slate-100 font-semibold text-slate-700 flex justify-between"><span>Pratonton Laporan: {selectedMonth}</span><span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">{monthlyLogs.length} Rekod</span></div>
-                        <table className="w-full text-sm text-left text-slate-600"><thead className="text-xs text-slate-500 uppercase bg-slate-50"><tr><th className="px-4 py-3">Tarikh</th><th className="px-4 py-3">Tempat</th><th className="px-4 py-3">Perkara</th><th className="px-4 py-3">Catatan</th></tr></thead><tbody>{monthlyLogs.map((log) => (<tr key={log.id} className="border-b"><td className="px-4 py-3">{formatDate(log.date)}</td><td className="px-4 py-3">{log.location}</td><td className="px-4 py-3">{log.type}</td><td className="px-4 py-3 italic">{log.catatan || '-'}</td></tr>))}{monthlyLogs.length === 0 && (<tr><td colSpan="4" className="px-4 py-8 text-center text-slate-400">Tiada rekod untuk bulan ini.</td></tr>)}</tbody></table>
-                    </div>
-                </div>
-            );
-        };
-
-        const StaffDashboard = ({ user, logs, onAddLog, combinedLocations, combinedActivityTypes }) => {
-            const [activeTab, setActiveTab] = React.useState('daftar'); 
-            return (
-                <div className="p-6 lg:p-10 flex-1">
-                    <div className="mb-8"><h1 className="text-2xl font-bold text-slate-800">Selamat Datang, {user.name}</h1><p className="text-slate-500">{user.department}</p></div>
-                    <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 border-b border-slate-200 mb-6">
-                        <button onClick={() => setActiveTab('daftar')} className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${activeTab === 'daftar' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500'}`}><span className="flex items-center space-x-2"><Plus className="w-4 h-4"/> <span>Daftar Pergerakan</span></span></button>
-                        <button onClick={() => setActiveTab('saring')} className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${activeTab === 'saring' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500'}`}><span className="flex items-center space-x-2"><Filter className="w-4 h-4"/> <span>Saring Rekod</span></span></button>
-                        <button onClick={() => setActiveTab('laporan')} className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${activeTab === 'laporan' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500'}`}><span className="flex items-center space-x-2"><FileText className="w-4 h-4"/> <span>Laporan Bulanan</span></span></button>
-                    </div>
-                    <div className="min-h-[400px]">
-                        {activeTab === 'daftar' && (<StaffEntryTab onSubmit={onAddLog} availableLocations={combinedLocations} availableTypes={combinedActivityTypes} />)}
-                        {activeTab === 'saring' && <StaffFilterTab logs={logs} combinedLocations={combinedLocations} combinedActivityTypes={combinedActivityTypes} />}
-                        {activeTab === 'laporan' && <StaffReportTab logs={logs} />}
-                    </div>
-                </div>
-            );
-        };
-
-        const AdminDataManagementTab = ({ locations, activityTypes, users, onAddLocation, onDeleteLocation, onAddActivity, onDeleteActivity, onDeleteUser }) => {
-            const [newLocation, setNewLocation] = React.useState('');
-            const [newActivity, setNewActivity] = React.useState('');
-            const [itemToDelete, setItemToDelete] = React.useState(null); 
-            const triggerDelete = (type, id, name) => setItemToDelete({ type, id, name });
-            const confirmDelete = () => { if (!itemToDelete) return; const { type, id } = itemToDelete; if (type === 'location') onDeleteLocation(id); if (type === 'activity') onDeleteActivity(id); if (type === 'user') onDeleteUser(id); setItemToDelete(null); };
-            const sortedUsers = [...users].sort((a, b) => a.name.localeCompare(b.name));
-            const nameCounts = sortedUsers.reduce((acc, user) => { acc[user.name] = (acc[user.name] || 0) + 1; return acc; }, {});
-
-            return (
-                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><MapPin className="w-5 h-5 mr-2 text-blue-600" /> Senarai Lokasi (Master)</h3>
-                            <div className="flex gap-2 mb-4"><input type="text" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} placeholder="Tambah lokasi..." className="flex-1 border border-slate-300 rounded-lg p-2 text-sm" /><button onClick={() => { if(newLocation) { onAddLocation(newLocation); setNewLocation(''); }}} className="bg-blue-600 text-white px-3 rounded-lg hover:bg-blue-700"><Plus className="w-5 h-5" /></button></div>
-                            <div className="max-h-60 overflow-y-auto space-y-2">{locations.map((loc) => (<div key={loc.id} className="flex justify-between items-center bg-slate-50 p-2 rounded text-sm"><span>{loc.name}</span><button onClick={() => triggerDelete('location', loc.id, loc.name)} className="text-slate-400 hover:text-red-500 p-1"><Trash2 className="w-4 h-4" /></button></div>))}</div>
-                        </div>
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><FileText className="w-5 h-5 mr-2 text-blue-600" /> Senarai Perkara (Master)</h3>
-                            <div className="flex gap-2 mb-4"><input type="text" value={newActivity} onChange={(e) => setNewActivity(e.target.value)} placeholder="Tambah perkara..." className="flex-1 border border-slate-300 rounded-lg p-2 text-sm" /><button onClick={() => { if(newActivity) { onAddActivity(newActivity); setNewActivity(''); }}} className="bg-blue-600 text-white px-3 rounded-lg hover:bg-blue-700"><Plus className="w-5 h-5" /></button></div>
-                            <div className="max-h-60 overflow-y-auto space-y-2">{activityTypes.map((type) => (<div key={type.id} className="flex justify-between items-center bg-slate-50 p-2 rounded text-sm"><span>{type.name}</span><button onClick={() => triggerDelete('activity', type.id, type.name)} className="text-slate-400 hover:text-red-500 p-1"><Trash2 className="w-4 h-4" /></button></div>))}</div>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden"><div className="p-6 border-b border-slate-100"><h3 className="text-lg font-bold text-slate-800 flex items-center"><UsersIcon className="w-5 h-5 mr-2 text-blue-600" /> Senarai Pengguna</h3></div><div className="overflow-x-auto"><table className="w-full text-sm text-left text-slate-600"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-6 py-3">Nama Penuh</th><th className="px-6 py-3">ID</th><th className="px-6 py-3">Jabatan</th><th className="px-6 py-3 text-right">Tindakan</th></tr></thead><tbody>{sortedUsers.map(user => { const isDuplicate = nameCounts[user.name] > 1; return (<tr key={user.id} className={`border-b ${isDuplicate ? 'bg-pink-50' : 'hover:bg-slate-50'}`}><td className="px-6 py-4 font-medium text-slate-900 flex items-center">{user.name}{isDuplicate && <span className="ml-2 text-pink-600"><AlertTriangle className="w-4 h-4"/></span>}</td><td className="px-6 py-4">{user.username}</td><td className="px-6 py-4">{user.department}</td><td className="px-6 py-4 text-right">{user.role !== 'admin' && (<button onClick={() => triggerDelete('user', user.id, user.name)} className="text-red-500 hover:text-red-700 bg-red-50 p-2 rounded-lg"><Trash2 className="w-4 h-4" /></button>)}</td></tr>); })}</tbody></table></div></div>
-                    <DeleteConfirmationModal isOpen={!!itemToDelete} onClose={() => setItemToDelete(null)} onConfirm={confirmDelete} itemName={itemToDelete?.name} />
-                </div>
-            );
-        };
-
-        const AdminAnalysisTab = ({ logs, allUsers, combinedLocations, combinedActivityTypes }) => {
-            const [filterMonth, setFilterMonth] = React.useState('');
-            const [filterStaff, setFilterStaff] = React.useState('');
-            const [filterPlace, setFilterPlace] = React.useState('');
-            const [filterType, setFilterType] = React.useState('');
-            const filteredLogs = logs.filter(log => { if (!log.date) return false; const matchMonth = filterMonth ? log.date.startsWith(filterMonth) : true; const matchStaff = filterStaff ? log.userName === filterStaff : true; const matchPlace = filterPlace ? log.location === filterPlace : true; const matchType = filterType ? log.type === filterType : true; return matchMonth && matchStaff && matchPlace && matchType; });
-
-            return (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100"><h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><Filter className="w-5 h-5 mr-2 text-blue-600" /> Saring Rekod (Slicers)</h3><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"><div><label className="block text-xs font-semibold text-slate-500 mb-1">Bulan</label><input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500" /></div><div><label className="block text-xs font-semibold text-slate-500 mb-1">Staf</label><select value={filterStaff} onChange={(e) => setFilterStaff(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500"><option value="">Semua Staf</option>{allUsers.map((u, idx) => <option key={idx} value={u}>{u}</option>)}</select></div><div><label className="block text-xs font-semibold text-slate-500 mb-1">Lokasi</label><select value={filterPlace} onChange={(e) => setFilterPlace(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500"><option value="">Semua Lokasi</option>{combinedLocations.map((loc, idx) => <option key={idx} value={loc}>{loc}</option>)}</select></div><div><label className="block text-xs font-semibold text-slate-500 mb-1">Perkara</label><select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500"><option value="">Semua Perkara</option>{combinedActivityTypes.map((type, idx) => <option key={idx} value={type}>{type}</option>)}</select></div></div><div className="mt-4 flex justify-between items-center pt-2 border-t border-slate-50"><span className="text-sm text-slate-500">Jumlah Rekod: <strong>{filteredLogs.length}</strong></span><button onClick={() => { setFilterMonth(''); setFilterStaff(''); setFilterPlace(''); setFilterType(''); }} className="text-sm text-blue-600 hover:text-blue-800 font-medium">Kosongkan Semua</button></div></div>
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm text-left text-slate-600"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-6 py-3">Tarikh</th><th className="px-6 py-3">Nama</th><th className="px-6 py-3">Lokasi</th><th className="px-6 py-3">Perkara</th></tr></thead><tbody>{filteredLogs.length > 0 ? filteredLogs.map(log => (<tr key={log.id} className="border-b hover:bg-slate-50"><td className="px-6 py-4">{formatDate(log.date)}</td><td className="px-6 py-4 font-bold text-slate-800">{log.userName}</td><td className="px-6 py-4">{log.location}</td><td className="px-6 py-4">{log.type}</td></tr>)) : (<tr><td colSpan="4" className="px-6 py-12 text-center text-slate-400">Tiada rekod ditemui dengan saringan ini.</td></tr>)}</tbody></table></div></div>
-                </div>
-            );
-        };
-
-        const AdminStatsTab = ({ logs, allUsers, combinedLocations, combinedActivityTypes }) => {
-            const [filterMonth, setFilterMonth] = React.useState(''); const [filterStaff, setFilterStaff] = React.useState(''); const [filterPlace, setFilterPlace] = React.useState(''); const [filterType, setFilterType] = React.useState('');
-            const filteredLogs = logs.filter(log => { if (!log.date) return false; const matchMonth = filterMonth ? log.date.startsWith(filterMonth) : true; const matchStaff = filterStaff ? log.userName === filterStaff : true; const matchPlace = filterPlace ? log.location === filterPlace : true; const matchType = filterType ? log.type === filterType : true; return matchMonth && matchStaff && matchPlace && matchType; });
-            const getChartData = (key) => { const counts = filteredLogs.reduce((acc, log) => { const val = log[key] || 'Lain-lain'; acc[val] = (acc[val] || 0) + 1; return acc; }, {}); const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1']; return Object.keys(counts).map((label, i) => ({ label, value: counts[label], color: colors[i % colors.length] })).sort((a,b) => b.value - a.value); };
-
-            return (
-                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100"><h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><Filter className="w-5 h-5 mr-2 text-blue-600" /> Saringan Data Statistik</h3><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"><div><label className="block text-xs font-semibold text-slate-500 mb-1">Bulan</label><input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500" /></div><div><label className="block text-xs font-semibold text-slate-500 mb-1">Staf</label><select value={filterStaff} onChange={(e) => setFilterStaff(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500"><option value="">Semua Staf</option>{allUsers.map((u, idx) => <option key={idx} value={u}>{u}</option>)}</select></div><div><label className="block text-xs font-semibold text-slate-500 mb-1">Lokasi</label><select value={filterPlace} onChange={(e) => setFilterPlace(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500"><option value="">Semua Lokasi</option>{combinedLocations.map((loc, idx) => <option key={idx} value={loc}>{loc}</option>)}</select></div><div><label className="block text-xs font-semibold text-slate-500 mb-1">Perkara</label><select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500"><option value="">Semua Perkara</option>{combinedActivityTypes.map((type, idx) => <option key={idx} value={type}>{type}</option>)}</select></div></div><div className="mt-4 flex justify-between items-center pt-2 border-t border-slate-50"><span className="text-sm text-blue-600 hover:text-blue-800 font-medium">Reset Saringan</span><button onClick={() => { setFilterMonth(''); setFilterStaff(''); setFilterPlace(''); setFilterType(''); }} className="text-sm text-blue-600 hover:text-blue-800 font-medium">Kosongkan Semua</button></div></div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col"><h4 className="font-bold text-slate-800 text-center mb-6 border-b pb-2">Peratus Mengikut Perkara</h4><div className="flex-1 flex items-center justify-center"><ConicPieChart data={getChartData('type')} /></div></div>
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col"><h4 className="font-bold text-slate-800 text-center mb-6 border-b pb-2">Peratus Mengikut Tempat</h4><div className="flex-1 flex items-center justify-center"><ConicPieChart data={getChartData('location')} /></div></div>
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col"><h4 className="font-bold text-slate-800 text-center mb-6 border-b pb-2">Peratus Mengikut Staf</h4><div className="flex-1 flex items-center justify-center"><ConicPieChart data={getChartData('userName')} totalLabel="Staf Aktif" /></div></div>
-                    </div>
-                </div>
-            );
-        };
-
-        const AdminLeaderboardTab = ({ logs }) => {
-            const totalEntries = logs.reduce((acc, log) => { acc[log.userName] = (acc[log.userName] || 0) + 1; return acc; }, {});
-            const sortedTotal = Object.entries(totalEntries).sort((a, b) => b[1] - a[1]).map(([name, count], i) => ({ rank: i + 1, name, count }));
-            const coachingLogs = logs.filter(log => { const text = (log.type + ' ' + log.catatan).toLowerCase(); return text.includes('bimbingan') || text.includes('coaching') || text.includes('mentoring'); });
-            const coachingEntries = coachingLogs.reduce((acc, log) => { acc[log.userName] = (acc[log.userName] || 0) + 1; return acc; }, {});
-            const sortedCoaching = Object.entries(coachingEntries).sort((a, b) => b[1] - a[1]).map(([name, count], i) => ({ rank: i + 1, name, count }));
-            const RankTable = ({ title, data, icon: Icon, color }) => ( <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden h-full"><div className={`p-4 ${color} text-white font-bold flex items-center`}><Icon className="w-5 h-5 mr-2" /> {title}</div><table className="w-full text-sm text-left text-slate-600"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-6 py-3 w-16">#</th><th className="px-6 py-3">Nama Pegawai</th><th className="px-6 py-3 text-right">Jumlah</th></tr></thead><tbody>{data.length > 0 ? data.map((item) => (<tr key={item.name} className="border-b hover:bg-slate-50 last:border-0"><td className="px-6 py-4 font-bold text-slate-400">{item.rank === 1 ? '🥇' : item.rank === 2 ? '🥈' : item.rank === 3 ? '🥉' : item.rank}</td><td className="px-6 py-4 font-medium text-slate-900">{item.name}</td><td className="px-6 py-4 text-right font-bold text-blue-900">{item.count}</td></tr>)) : (<tr><td colSpan="3" className="px-6 py-8 text-center text-slate-400">Tiada data direkodkan.</td></tr>)}</tbody></table></div>);
-            return ( <div className="grid grid-cols-1 md:grid-cols-2 gap-8"><RankTable title="Ranking Pengisian Terbanyak" data={sortedTotal} icon={Trophy} color="bg-blue-600" /><RankTable title="Ranking Coaching & Mentoring" data={sortedCoaching} icon={TrendingUp} color="bg-green-600" /></div> );
-        };
-
-        // ** TAB 5: LAPORAN BULANAN (DENGAN FILTER) **
-        const AdminReportTab = ({ logs, allUsers, combinedLocations, combinedActivityTypes }) => {
-            const [selectedMonth, setSelectedMonth] = React.useState(new Date().toISOString().slice(0, 7));
-            const [filterStaff, setFilterStaff] = React.useState(''); 
-            const [filterPlace, setFilterPlace] = React.useState(''); 
-            const [filterType, setFilterType] = React.useState('');
-
-            const filteredLogs = logs.filter(log => {
-                if (!log.date) return false;
-                const matchMonth = selectedMonth ? log.date.startsWith(selectedMonth) : true;
-                const matchStaff = filterStaff ? log.userName === filterStaff : true;
-                const matchPlace = filterPlace ? log.location === filterPlace : true;
-                const matchType = filterType ? log.type === filterType : true;
-                return matchMonth && matchStaff && matchPlace && matchType;
-            });
-
-            return (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><Filter className="w-5 h-5 mr-2 text-blue-600" /> Saring & Muat Turun Laporan</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                            <div><label className="block text-xs font-semibold text-slate-500 mb-1">Bulan</label><input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500" /></div>
-                            <div><label className="block text-xs font-semibold text-slate-500 mb-1">Staf</label><select value={filterStaff} onChange={(e) => setFilterStaff(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500"><option value="">Semua Staf</option>{allUsers.map((u, idx) => <option key={idx} value={u}>{u}</option>)}</select></div>
-                            <div><label className="block text-xs font-semibold text-slate-500 mb-1">Lokasi</label><select value={filterPlace} onChange={(e) => setFilterPlace(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500"><option value="">Semua Lokasi</option>{combinedLocations.map((loc, idx) => <option key={idx} value={loc}>{loc}</option>)}</select></div>
-                            <div><label className="block text-xs font-semibold text-slate-500 mb-1">Perkara</label><select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500"><option value="">Semua Perkara</option>{combinedActivityTypes.map((type, idx) => <option key={idx} value={type}>{type}</option>)}</select></div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100 pt-4">
-                            <button onClick={() => downloadCSV(filteredLogs, `Laporan_Admin_${selectedMonth}.csv`)} className="flex items-center justify-center space-x-2 bg-green-600 text-white p-3 rounded-lg shadow-sm hover:bg-green-700 transition-colors"><FileSpreadsheet className="w-5 h-5" /><div className="text-left"><div className="font-bold text-sm">Muat Turun Excel (CSV)</div></div></button>
-                            <button onClick={() => window.print()} className="flex items-center justify-center space-x-2 bg-slate-700 text-white p-3 rounded-lg shadow-sm hover:bg-slate-800 transition-colors"><Printer className="w-5 h-5" /><div className="text-left"><div className="font-bold text-sm">Cetak / Simpan PDF</div></div></button>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden print:shadow-none print:border-none">
-                        <div className="p-4 bg-slate-50 border-b border-slate-100 font-semibold text-slate-700 flex justify-between items-center"><span>Pratonton Laporan: {selectedMonth}</span><span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">{filteredLogs.length} Rekod Dijumpai</span></div>
-                        <div className="overflow-x-auto"><table className="w-full text-sm text-left text-slate-600"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Tarikh</th><th className="px-4 py-3">Nama Pegawai</th><th className="px-4 py-3">Tempat</th><th className="px-4 py-3">Perkara</th><th className="px-4 py-3">Catatan</th></tr></thead><tbody>{filteredLogs.length > 0 ? filteredLogs.map((log) => (<tr key={log.id} className="border-b hover:bg-slate-50"><td className="px-4 py-3">{formatDate(log.date)}</td><td className="px-4 py-3 font-medium">{log.userName}</td><td className="px-4 py-3">{log.location}</td><td className="px-4 py-3">{log.type}</td><td className="px-4 py-3 italic">{log.catatan || '-'}</td></tr>)) : (<tr><td colSpan="5" className="px-4 py-8 text-center text-slate-400">Tiada rekod untuk padanan ini.</td></tr>)}</tbody></table></div>
-                    </div>
-                </div>
-            );
-        };
-
-        const AdminDashboard = ({ user, logs, data, onAddLocation, onDeleteLocation, onAddActivity, onDeleteActivity, onDeleteUser, allUsers, combinedLocations, combinedActivityTypes }) => {
-            const [activeTab, setActiveTab] = React.useState('data');
-            return (
-                <div className="p-6 lg:p-10 flex-1">
-                    <h1 className="text-2xl font-bold text-slate-800 mb-2">Paparan Utama Admin</h1>
-                    <p className="text-slate-500 mb-6">Urus sistem E-Gerak PPD Ranau.</p>
-                    <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 border-b border-slate-200 mb-6 overflow-x-auto">
-                        <button onClick={() => setActiveTab('data')} className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'data' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500'}`}><span className="flex items-center space-x-2"><Settings className="w-4 h-4"/> <span>1. Pengurusan Data</span></span></button>
-                        <button onClick={() => setActiveTab('analisis')} className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'analisis' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500'}`}><span className="flex items-center space-x-2"><Filter className="w-4 h-4"/> <span>2. Analisis & Rekod</span></span></button>
-                        <button onClick={() => setActiveTab('stats')} className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'stats' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500'}`}><span className="flex items-center space-x-2"><PieChart className="w-4 h-4"/> <span>3. Statistik</span></span></button>
-                        <button onClick={() => setActiveTab('leaderboard')} className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'leaderboard' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500'}`}><span className="flex items-center space-x-2"><Trophy className="w-4 h-4"/> <span>4. Leaderboard</span></span></button>
-                        <button onClick={() => setActiveTab('laporan')} className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'laporan' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500'}`}><span className="flex items-center space-x-2"><FileText className="w-4 h-4"/> <span>5. Laporan Bulanan</span></span></button>
-                    </div>
-                    <div className="min-h-[500px]">
-                        {activeTab === 'data' && (<AdminDataManagementTab locations={data.locations} activityTypes={data.activityTypes} users={data.users} onAddLocation={onAddLocation} onDeleteLocation={onDeleteLocation} onAddActivity={onAddActivity} onDeleteActivity={onDeleteActivity} onDeleteUser={onDeleteUser} />)}
-                        {activeTab === 'analisis' && (<AdminAnalysisTab logs={logs} allUsers={allUsers} combinedLocations={combinedLocations} combinedActivityTypes={combinedActivityTypes} />)}
-                        {activeTab === 'stats' && (<AdminStatsTab logs={logs} allUsers={allUsers} combinedLocations={combinedLocations} combinedActivityTypes={combinedActivityTypes} />)}
-                        {activeTab === 'leaderboard' && <AdminLeaderboardTab logs={logs} />}
-                        {activeTab === 'laporan' && (<AdminReportTab logs={logs} allUsers={allUsers} combinedLocations={combinedLocations} combinedActivityTypes={combinedActivityTypes} />)}
-                    </div>
-                </div>
-            );
-        };
-
-        const App = () => {
-            const [user, setUser] = React.useState(null);
-            const [error, setError] = React.useState('');
-            const [successMsg, setSuccessMsg] = React.useState('');
-            const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
-            const [showSuccessModal, setShowSuccessModal] = React.useState(false); 
-            // Initialize with INITIAL_DATA directly
-            const [data, setData] = React.useState(INITIAL_DATA);
-
-            const handleLogin = (username, password, role) => {
-                const foundUser = data.users.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
-                if (foundUser) { setUser(foundUser); setError(''); setSuccessMsg(''); } 
-                else { setError('ID Pengguna atau Kata Laluan tidak sah.'); setSuccessMsg(''); }
-            };
-
-            const handleRegister = (newUser) => { 
-                const id = data.users.length + 1; 
-                const userEntry = { ...newUser, id }; 
-                setData(prev => ({ ...prev, users: [...prev.users, userEntry] })); 
-                setSuccessMsg('Pendaftaran berjaya! Sila log masuk.'); 
-                setError(''); 
-            };
-
-            const handleLogout = () => { setUser(null); setIsMobileMenuOpen(false); setSuccessMsg(''); setError(''); };
-
-            const handleAddLog = (newLogData) => { 
-                const newLog = { id: Date.now(), userId: user.id, userName: user.name, ...newLogData }; 
-                setData(prev => ({ ...prev, logs: [newLog, ...prev.logs] })); 
-                setShowSuccessModal(true); 
-            };
-            
-            // ADMIN ACTIONS
-            const handleAddLocation = (name) => setData(prev => ({ ...prev, locations: [...prev.locations, { id: Date.now(), name }] }));
-            const handleDeleteLocation = (id) => setData(prev => ({ ...prev, locations: prev.locations.filter(i => i.id !== id) }));
-            const handleAddActivity = (name) => setData(prev => ({ ...prev, activityTypes: [...prev.activityTypes, { id: Date.now(), name }] }));
-            const handleDeleteActivity = (id) => setData(prev => ({ ...prev, activityTypes: prev.activityTypes.filter(i => i.id !== id) }));
-            const handleDeleteUser = (id) => setData(prev => ({ ...prev, users: prev.users.filter(u => u.id !== id) }));
-
-            // DYNAMIC COMBINED DATA
-            const combinedLocations = React.useMemo(() => {
-                const logLocs = data.logs.map(l => l.location).filter(Boolean);
-                // Map objects to strings if needed, assuming data.locations are objects {id, name}
-                const masterLocs = data.locations.map(l => l.name || l);
-                return Array.from(new Set([...masterLocs, ...logLocs])).sort();
-            }, [data.logs, data.locations]);
-
-            const combinedActivityTypes = React.useMemo(() => {
-                const logTypes = data.logs.map(l => l.type).filter(Boolean);
-                const masterTypes = data.activityTypes.map(l => l.name || l);
-                return Array.from(new Set([...masterTypes, ...logTypes])).sort();
-            }, [data.logs, data.activityTypes]);
-
-            const allUsers = React.useMemo(() => {
-                const logUserNames = data.logs.map(l => l.userName);
-                const registeredUserNames = data.users.map(u => u.name);
-                return Array.from(new Set([...registeredUserNames, ...logUserNames])).sort();
-            }, [data.logs, data.users]);
-
-            const relevantLogs = user ? (user.role === 'admin' ? data.logs : data.logs.filter(log => log.userId === user.id)) : [];
-
-            if (!user) return <LoginPage onLogin={handleLogin} onRegister={handleRegister} error={error} setError={setError} usersLoading={false} />;
-
-            return (
-                <div className="min-h-screen bg-slate-50 flex font-sans">
-                    <aside className="hidden md:flex flex-col w-64 bg-blue-900 text-white fixed h-full z-10 print:hidden"><div className="p-6 flex items-center space-x-3 border-b border-blue-800"><div className="bg-white p-1 rounded-full"><MapPin className="w-6 h-6 text-blue-900" /></div><span className="font-bold text-lg tracking-wide">E-Gerak</span></div><div className="flex-1 p-4"><div className="p-4 bg-blue-800 rounded-xl mb-4"><p className="text-xs text-blue-300 uppercase tracking-wider mb-1">Akaun</p><p className="font-bold truncate">{user.name}</p><p className="text-xs text-blue-200">{user.role === 'admin' ? 'Pentadbir Sistem' : 'Pegawai / Staf'}</p></div></div><div className="p-4 border-t border-blue-800"><button onClick={handleLogout} className="flex items-center space-x-2 text-sm text-blue-200 hover:text-white w-full px-2 py-2 rounded-lg hover:bg-blue-800 transition-colors"><LogOut className="w-4 h-4" /><span>Log Keluar</span></button></div></aside>
-                    <main className="flex-1 md:ml-64 flex flex-col min-h-screen">
-                        <header className="bg-white shadow-sm sticky top-0 z-20 md:hidden px-4 py-3 flex justify-between items-center print:hidden"><div className="flex items-center space-x-2"><MapPin className="text-blue-900 w-6 h-6" /><span className="font-bold text-blue-900">E-Gerak</span></div><button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>{isMobileMenuOpen ? <X className="text-slate-600" /> : <Menu className="text-slate-600" />}</button></header>
-                        {isMobileMenuOpen && (<div className="md:hidden bg-blue-900 text-white p-4 space-y-3 absolute top-14 w-full z-20 shadow-xl print:hidden"><div className="pb-3 border-b border-blue-700 mb-3"><p className="font-bold">{user.name}</p><p className="text-xs text-blue-300">{user.department}</p></div><button onClick={handleLogout} className="block w-full text-left py-2 text-red-300">Log Keluar</button></div>)}
-                        {user.role === 'staff' ? (
-                            <StaffDashboard user={user} logs={relevantLogs} onAddLog={handleAddLog} combinedLocations={combinedLocations} combinedActivityTypes={combinedActivityTypes} />
-                        ) : (
-                            <AdminDashboard 
-                                user={user} logs={relevantLogs} data={data}
-                                onAddLocation={handleAddLocation} onDeleteLocation={handleDeleteLocation}
-                                onAddActivity={handleAddActivity} onDeleteActivity={handleDeleteActivity} onDeleteUser={handleDeleteUser}
-                                allUsers={allUsers} combinedLocations={combinedLocations} combinedActivityTypes={combinedActivityTypes}
+            <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">2. Lokasi / Tempat</label>
+                <div className="flex gap-2">
+                    <div className="relative w-full">
+                        {useCustomLocation ? (
+                            <input 
+                            type="text" 
+                            name="location" 
+                            required 
+                            value={formData.location} 
+                            onChange={handleChange} 
+                            placeholder="Taip nama lokasi baru..." 
+                            className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" 
                             />
+                        ) : (
+                            <select 
+                            name="location" 
+                            required 
+                            value={formData.location} 
+                            onChange={handleChange} 
+                            className="w-full px-4 py-2.5 border border-slate-300 rounded-lg appearance-none bg-white"
+                            >
+                                <option value="">Sila Pilih Lokasi...</option>
+                                {filteredLocations.map((loc, idx) => (
+                                    <option key={idx} value={loc.name}>{loc.name}</option>
+                                ))}
+                            </select>
                         )}
-                    </main>
-                    <SuccessModal isOpen={showSuccessModal} onClose={() => setShowSuccessModal(false)} message="Laporan telah dihantar." />
+                    </div>
+                    
+                    {/* Plus Button only active for 'Lain-lain' */}
+                    {locationCategory === 'Lain-lain' && (
+                        <button 
+                            type="button" 
+                            onClick={() => { 
+                                setUseCustomLocation(!useCustomLocation); 
+                                setFormData(prev => ({ ...prev, location: '' })); 
+                            }} 
+                            className={`px-3 rounded-lg border transition-colors ${useCustomLocation ? 'bg-slate-200 text-slate-700 border-slate-300' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'}`}
+                            title={useCustomLocation ? "Pilih dari senarai" : "Tambah lokasi baru"}
+                        >
+                            {useCustomLocation ? <List className="w-5 h-5"/> : <Plus className="w-5 h-5"/>}
+                        </button>
+                    )}
                 </div>
-            );
-        };
+            </div>
+        </div>
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+        <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Perkara / Tujuan</label>
+            <div className="flex gap-2">
+                <div className="relative w-full">
+                    {useCustomType ? (
+                        <input type="text" name="type" required value={formData.type} onChange={handleChange} placeholder="Sila taip tujuan baru..." className="w-full px-4 py-2.5 border border-slate-300 rounded-lg" />
+                    ) : (
+                        <select name="type" required value={formData.type} onChange={handleChange} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg appearance-none bg-white" >
+                            <option value="">Pilih Tujuan...</option>
+                            {availableTypes.map((type, idx) => (<option key={idx} value={type}>{type}</option>))}
+                        </select>
+                    )}
+                </div>
+                <button type="button" onClick={() => { setUseCustomType(!useCustomType); setFormData({...formData, type: ''}); }} className="px-3 bg-slate-100 rounded-lg border">
+                    {useCustomType ? <List/> : <Plus/>}
+                </button>
+            </div>
+        </div>
+
+        <div><label className="block text-sm font-medium text-slate-700 mb-2">Catatan</label><textarea name="catatan" rows="3" value={formData.catatan} onChange={handleChange} placeholder="Catatan tambahan..." className="w-full px-4 py-2.5 border border-slate-300 rounded-lg" ></textarea></div>
+        <div className="pt-4 border-t border-slate-100"><button type="submit" className="w-full bg-blue-900 text-white py-3 rounded-lg font-bold shadow-md hover:bg-blue-800 flex justify-center items-center space-x-2"><CheckCircle className="w-5 h-5" /><span>Hantar Rekod</span></button></div>
+      </form>
+    </div>
+  );
+};
+
+const StaffFilterTab = ({ logs, combinedLocations, combinedActivityTypes }) => {
+  const [filterDate, setFilterDate] = useState('');
+  const [filterPlace, setFilterPlace] = useState('');
+  const [filterType, setFilterType] = useState('');
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const isFilterActive = filterDate || filterPlace || filterType;
+  const filteredLogs = logs.filter(log => {
+    if (!isFilterActive) return log.date.startsWith(currentMonth);
+    return (filterDate ? log.date === filterDate : true) && 
+           (filterPlace ? log.location === filterPlace : true) &&
+           (filterType ? log.type === filterType : true);
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><Filter className="w-5 h-5 mr-2 text-blue-600" /> Saring & Cari Rekod</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm" />
+          <select value={filterPlace} onChange={(e) => setFilterPlace(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm"><option value="">Semua Lokasi</option>{combinedLocations.map(l => <option key={l.name} value={l.name}>{l.name}</option>)}</select>
+          <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm"><option value="">Semua Perkara</option>{combinedActivityTypes.map(t => <option key={t} value={t}>{t}</option>)}</select>
+        </div>
+        <div className="mt-4 flex justify-end"><button onClick={() => { setFilterDate(''); setFilterPlace(''); setFilterType(''); }} className="text-sm text-red-500 hover:text-red-700 underline">Kosongkan Saringan</button></div>
+      </div>
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+        {!isFilterActive && (<div className="bg-blue-50 px-6 py-2 text-xs text-blue-700 border-b border-blue-100 flex items-center"><Info className="w-4 h-4 mr-2"/><span>Memaparkan rekod bulan semasa ({currentMonth}).</span></div>)}
+        <div className="overflow-x-auto"><table className="w-full text-sm text-left text-slate-600"><thead className="text-xs text-slate-500 uppercase bg-slate-50"><tr><th className="px-6 py-3">Tarikh</th><th className="px-6 py-3">Lokasi</th><th className="px-6 py-3">Tujuan</th><th className="px-6 py-3">Catatan</th></tr></thead><tbody>{filteredLogs.length > 0 ? filteredLogs.map((log) => (<tr key={log.id} className="border-b hover:bg-slate-50"><td className="px-6 py-4 font-medium">{formatDate(log.date)}</td><td className="px-6 py-4">{log.location}</td><td className="px-6 py-4">{log.type}</td><td className="px-6 py-4 italic text-slate-500">{log.catatan || '-'}</td></tr>)) : (<tr><td colSpan="4" className="px-6 py-8 text-center text-slate-400">Tiada rekod ditemui.</td></tr>)}</tbody></table></div>
+      </div>
+    </div>
+  );
+};
+
+const StaffReportTab = ({ logs }) => {
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+  const monthlyLogs = logs.filter(log => log.date.startsWith(selectedMonth));
+  return (
+    <div className="space-y-6">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div><h3 className="text-lg font-bold text-slate-800">Laporan Bulanan</h3><p className="text-slate-500 text-sm">Pilih bulan untuk melihat dan memuat turun rekod.</p></div>
+        <div className="flex items-center space-x-2"><Calendar className="w-5 h-5 text-slate-400" /><input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500" /></div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <button onClick={() => downloadCSV(monthlyLogs, `Log_Pergerakan_${selectedMonth}.csv`)} className="flex items-center justify-center space-x-2 bg-green-600 text-white p-4 rounded-xl shadow-sm hover:bg-green-700 transition-colors"><FileSpreadsheet className="w-6 h-6" /><div className="text-left"><div className="font-bold">Muat Turun Excel (CSV)</div><div className="text-xs text-green-100">Format hamparan standard</div></div></button>
+        <button onClick={() => window.print()} className="flex items-center justify-center space-x-2 bg-slate-700 text-white p-4 rounded-xl shadow-sm hover:bg-slate-800 transition-colors"><Printer className="w-6 h-6" /><div className="text-left"><div className="font-bold">Cetak / Simpan PDF</div><div className="text-xs text-slate-300">Menggunakan pencetak sistem</div></div></button>
+      </div>
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden print:shadow-none print:border-none">
+        <div className="p-4 bg-slate-50 border-b border-slate-100 font-semibold text-slate-700 flex justify-between"><span>Pratonton Laporan: {selectedMonth}</span><span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">{monthlyLogs.length} Rekod</span></div>
+        <table className="w-full text-sm text-left text-slate-600"><thead className="text-xs text-slate-500 uppercase bg-slate-50"><tr><th className="px-4 py-3">Tarikh</th><th className="px-4 py-3">Tempat</th><th className="px-4 py-3">Perkara</th><th className="px-4 py-3">Catatan</th></tr></thead><tbody>{monthlyLogs.map((log) => (<tr key={log.id} className="border-b"><td className="px-4 py-3">{formatDate(log.date)}</td><td className="px-4 py-3">{log.location}</td><td className="px-4 py-3">{log.type}</td><td className="px-4 py-3 italic">{log.catatan || '-'}</td></tr>))}{monthlyLogs.length === 0 && (<tr><td colSpan="4" className="px-4 py-8 text-center text-slate-400">Tiada rekod untuk bulan ini.</td></tr>)}</tbody></table>
+      </div>
+    </div>
+  );
+};
+
+const StaffDashboard = ({ user, logs, onAddLog, combinedLocations, combinedActivityTypes }) => {
+  const [activeTab, setActiveTab] = useState('daftar'); 
+  return (
+    <div className="p-6 lg:p-10 flex-1">
+      <div className="mb-8"><h1 className="text-2xl font-bold text-slate-800">Selamat Datang, {user.name}</h1><p className="text-slate-500">{user.department}</p></div>
+      <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 border-b border-slate-200 mb-6">
+        <button onClick={() => setActiveTab('daftar')} className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${activeTab === 'daftar' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><span className="flex items-center space-x-2"><Plus className="w-4 h-4"/> <span>Daftar Pergerakan</span></span></button>
+        <button onClick={() => setActiveTab('saring')} className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${activeTab === 'saring' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><span className="flex items-center space-x-2"><Filter className="w-4 h-4"/> <span>Saring Rekod</span></span></button>
+        <button onClick={() => setActiveTab('laporan')} className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${activeTab === 'laporan' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><span className="flex items-center space-x-2"><FileText className="w-4 h-4"/> <span>Laporan Bulanan</span></span></button>
+      </div>
+      <div className="min-h-[400px]">
+        {activeTab === 'daftar' && (<StaffEntryTab onSubmit={onAddLog} availableLocations={combinedLocations} availableTypes={combinedActivityTypes} />)}
+        {activeTab === 'saring' && <StaffFilterTab logs={logs} combinedLocations={combinedLocations} combinedActivityTypes={combinedActivityTypes} />}
+        {activeTab === 'laporan' && <StaffReportTab logs={logs} />}
+      </div>
+    </div>
+  );
+};
+
+// --- KOMPONEN ADMIN ---
+
+const AdminDataManagementTab = ({ locations, activityTypes, users, onAddLocation, onDeleteLocation, onAddActivity, onDeleteActivity, onDeleteUser, onResetPassword }) => {
+  const [newLocation, setNewLocation] = useState('');
+  const [newActivity, setNewActivity] = useState('');
+  const [itemToDelete, setItemToDelete] = useState(null); 
+  const [locCategory, setLocCategory] = useState('Sekolah Rendah');
+  const [activeLocTab, setActiveLocTab] = useState('Sekolah Rendah');
+  const [locSearch, setLocSearch] = useState('');
+
+  const triggerDelete = (type, id, name) => setItemToDelete({ type, id, name });
+  const triggerReset = (id, name) => setItemToDelete({ type: 'reset_user', id, name });
+
+  const confirmAction = () => { 
+      if (!itemToDelete) return; 
+      const { type, id } = itemToDelete; 
+      if (type === 'location') onDeleteLocation(id); 
+      if (type === 'activity') onDeleteActivity(id); 
+      if (type === 'user') onDeleteUser(id); 
+      if (type === 'reset_user') onResetPassword(id);
+      setItemToDelete(null); 
+  };
+  
+  const sortedUsers = [...users].sort((a, b) => a.name.localeCompare(b.name));
+  const nameCounts = sortedUsers.reduce((acc, user) => { acc[user.name] = (acc[user.name] || 0) + 1; return acc; }, {});
+
+  // Filter Locations for Display
+  const filteredLocations = locations.filter(loc => 
+      loc.category === activeLocTab && 
+      loc.name.toLowerCase().includes(locSearch.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        {/* LOCATIONS MANAGEMENT SECTION */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col h-[500px]">
+          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center justify-between">
+            <div className="flex items-center"><MapPin className="w-5 h-5 mr-2 text-blue-600" /> Senarai Lokasi</div>
+          </h3>
+          
+          {/* Add Location Form */}
+          <div className="bg-slate-50 p-3 rounded-lg mb-4 space-y-2">
+              <div className="text-xs font-bold text-slate-400 uppercase">Tambah Lokasi Baru</div>
+              <div className="flex gap-2">
+                  <select value={locCategory} onChange={(e) => setLocCategory(e.target.value)} className="text-sm border border-slate-300 rounded-lg p-2 w-1/3">
+                      <option value="Sekolah Rendah">Sek. Rendah</option>
+                      <option value="Sekolah Menengah">Sek. Menengah</option>
+                      <option value="Lain-lain">Lain-lain</option>
+                  </select>
+                  <input type="text" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} placeholder="Nama Lokasi..." className="flex-1 border border-slate-300 rounded-lg p-2 text-sm" />
+                  <button onClick={() => { if(newLocation) { onAddLocation({ name: newLocation, category: locCategory }); setNewLocation(''); }}} className="bg-blue-600 text-white px-3 rounded-lg hover:bg-blue-700"><Plus className="w-5 h-5" /></button>
+              </div>
+          </div>
+
+          {/* Location Category Tabs */}
+          <div className="flex border-b border-slate-200 mb-2">
+              <button onClick={() => setActiveLocTab('Sekolah Rendah')} className={`flex-1 pb-2 text-xs font-bold ${activeLocTab === 'Sekolah Rendah' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400'}`}>Sek. Rendah</button>
+              <button onClick={() => setActiveLocTab('Sekolah Menengah')} className={`flex-1 pb-2 text-xs font-bold ${activeLocTab === 'Sekolah Menengah' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400'}`}>Sek. Menengah</button>
+              <button onClick={() => setActiveLocTab('Lain-lain')} className={`flex-1 pb-2 text-xs font-bold ${activeLocTab === 'Lain-lain' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400'}`}>Lain-lain</button>
+          </div>
+
+          {/* Search Bar for Locations */}
+          <div className="relative mb-2">
+             <input type="text" value={locSearch} onChange={(e) => setLocSearch(e.target.value)} placeholder={`Cari di ${activeLocTab}...`} className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-400 transition-colors" />
+             <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" />
+          </div>
+
+          {/* Locations List */}
+          <div className="flex-1 overflow-y-auto space-y-1 pr-1">
+            {filteredLocations.length > 0 ? filteredLocations.map((loc, idx) => (
+                <div key={idx} className="flex justify-between items-center bg-white border border-slate-100 p-2 rounded text-sm hover:bg-slate-50 group">
+                    <span className="flex items-center">
+                        {loc.category === 'Sekolah Rendah' && <School className="w-3 h-3 mr-2 text-green-500"/>}
+                        {loc.category === 'Sekolah Menengah' && <Building2 className="w-3 h-3 mr-2 text-orange-500"/>}
+                        {loc.category === 'Lain-lain' && <HelpCircle className="w-3 h-3 mr-2 text-gray-400"/>}
+                        {loc.name}
+                    </span>
+                    {/* We need to find the actual index in the main array to delete correctly, or change delete logic to ID based. 
+                        For this simple mock, we will filter by name to delete */}
+                    <button onClick={() => triggerDelete('location', locations.findIndex(l => l.name === loc.name), loc.name)} className="text-slate-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></button>
+                </div>
+            )) : (
+                <div className="text-center py-8 text-xs text-slate-400 italic">Tiada lokasi dijumpai.</div>
+            )}
+          </div>
+        </div>
+
+        {/* ACTIVITY TYPES SECTION */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-[500px] flex flex-col">
+          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><FileText className="w-5 h-5 mr-2 text-blue-600" /> Senarai Perkara (Master)</h3>
+          <div className="flex gap-2 mb-4"><input type="text" value={newActivity} onChange={(e) => setNewActivity(e.target.value)} placeholder="Tambah perkara..." className="flex-1 border border-slate-300 rounded-lg p-2 text-sm" /><button onClick={() => { if(newActivity) { onAddActivity(newActivity); setNewActivity(''); }}} className="bg-blue-600 text-white px-3 rounded-lg hover:bg-blue-700"><Plus className="w-5 h-5" /></button></div>
+          <div className="flex-1 overflow-y-auto space-y-2 pr-1">{activityTypes.map((type, idx) => (<div key={idx} className="flex justify-between items-center bg-slate-50 p-2 rounded text-sm group"><span>{type}</span><button onClick={() => triggerDelete('activity', idx, type)} className="text-slate-300 group-hover:text-red-500 p-1 transition-colors"><Trash2 className="w-4 h-4" /></button></div>))}</div>
+        </div>
+      </div>
+      
+      {/* USERS SECTION */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-6 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center"><Users className="w-5 h-5 mr-2 text-blue-600" /> Senarai Pengguna</h3>
+              <p className="text-xs text-slate-500 mt-1">Urus akaun pengguna. Gunakan butang Reset untuk menetapkan semula kata laluan kepada "123".</p>
+          </div>
+          <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left text-slate-600">
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                    <tr><th className="px-6 py-3">Nama Penuh</th><th className="px-6 py-3">ID</th><th className="px-6 py-3">Jabatan</th><th className="px-6 py-3 text-right">Tindakan</th></tr>
+                </thead>
+                <tbody>{sortedUsers.map(user => { const isDuplicate = nameCounts[user.name] > 1; return (
+                    <tr key={user.id} className={`border-b ${isDuplicate ? 'bg-pink-50' : 'hover:bg-slate-50'}`}>
+                        <td className="px-6 py-4 font-medium text-slate-900 flex items-center">{user.name}{isDuplicate && <span className="ml-2 text-pink-600"><AlertTriangle className="w-4 h-4"/></span>}</td>
+                        <td className="px-6 py-4">{user.username}</td>
+                        <td className="px-6 py-4">{user.department}</td>
+                        <td className="px-6 py-4 text-right flex justify-end space-x-2">
+                             <button onClick={() => triggerReset(user.id, user.name)} className="text-orange-500 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 p-2 rounded-lg flex items-center text-xs font-medium transition-colors" title="Reset Kata Laluan"><RefreshCw className="w-4 h-4 mr-1"/> Reset Pass</button>
+                             {user.role !== 'admin' && (<button onClick={() => triggerDelete('user', user.id, user.name)} className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-2 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>)}
+                        </td>
+                    </tr>); })}
+                </tbody>
+              </table>
+          </div>
+      </div>
+      
+      <DeleteConfirmationModal 
+        isOpen={!!itemToDelete} 
+        onClose={() => setItemToDelete(null)} 
+        onConfirm={confirmAction} 
+        itemName={itemToDelete?.name} 
+        isResetPassword={itemToDelete?.type === 'reset_user'}
+      />
+    </div>
+  );
+};
+
+const AdminAnalysisTab = ({ logs, allUsers, combinedLocations, combinedActivityTypes, onDeleteLog }) => {
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterStaff, setFilterStaff] = useState('');
+  const [filterPlace, setFilterPlace] = useState('');
+  const [filterType, setFilterType] = useState('');
+  
+  const filteredLogs = logs.filter(log => { 
+      if (!log.date) return false; 
+      const matchMonth = filterMonth ? log.date.startsWith(filterMonth) : true; 
+      const matchStaff = filterStaff ? log.userName === filterStaff : true; 
+      const matchPlace = filterPlace ? log.location === filterPlace : true; 
+      const matchType = filterType ? log.type === filterType : true; 
+      return matchMonth && matchStaff && matchPlace && matchType; 
+  });
+  
+  // State for confirming deletion of a specific log entry
+  const [logToDelete, setLogToDelete] = useState(null);
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><Filter className="w-5 h-5 mr-2 text-blue-600" /> Saring Rekod (Slicers)</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div><label className="block text-xs font-semibold text-slate-500 mb-1">Bulan</label><input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white" /></div>
+              <div><label className="block text-xs font-semibold text-slate-500 mb-1">Staf</label><select value={filterStaff} onChange={(e) => setFilterStaff(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white"><option value="">Semua Staf</option>{allUsers.map((u, idx) => <option key={idx} value={u}>{u}</option>)}</select></div>
+              <div><label className="block text-xs font-semibold text-slate-500 mb-1">Lokasi</label><select value={filterPlace} onChange={(e) => setFilterPlace(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white"><option value="">Semua Lokasi</option>{combinedLocations.map((loc, idx) => <option key={loc.name} value={loc.name}>{loc.name}</option>)}</select></div>
+              <div><label className="block text-xs font-semibold text-slate-500 mb-1">Perkara</label><select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white"><option value="">Semua Perkara</option>{combinedActivityTypes.map((type, idx) => <option key={idx} value={type}>{type}</option>)}</select></div>
+          </div>
+          <div className="mt-4 flex justify-between items-center pt-2 border-t border-slate-50">
+              <span className="text-sm text-slate-500">Jumlah Rekod: <strong>{filteredLogs.length}</strong></span>
+              <button onClick={() => { setFilterMonth(''); setFilterStaff(''); setFilterPlace(''); setFilterType(''); }} className="text-sm text-blue-600 hover:text-blue-800 font-medium">Kosongkan Semua</button>
+          </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left text-slate-600">
+                  <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                      <tr><th className="px-6 py-3">Tarikh</th><th className="px-6 py-3">Nama</th><th className="px-6 py-3">Lokasi</th><th className="px-6 py-3">Perkara</th><th className="px-6 py-3 text-right">Tindakan</th></tr>
+                  </thead>
+                  <tbody>{filteredLogs.length > 0 ? filteredLogs.map(log => (
+                      <tr key={log.id} className="border-b hover:bg-slate-50">
+                          <td className="px-6 py-4">{formatDate(log.date)}</td>
+                          <td className="px-6 py-4 font-bold text-slate-800">{log.userName}</td>
+                          <td className="px-6 py-4">{log.location}</td>
+                          <td className="px-6 py-4">{log.type}</td>
+                          <td className="px-6 py-4 text-right">
+                              <button onClick={() => setLogToDelete(log)} className="text-slate-400 hover:text-red-500 p-1 transition-colors" title="Padam Rekod Ini"><Trash2 className="w-4 h-4" /></button>
+                          </td>
+                      </tr>)) : (<tr><td colSpan="5" className="px-6 py-12 text-center text-slate-400">Tiada rekod ditemui dengan saringan ini.</td></tr>)}
+                  </tbody>
+              </table>
+          </div>
+      </div>
+      
+      {/* Reusing Delete Modal for Logs */}
+      {logToDelete && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-xl max-w-sm w-full p-6 shadow-2xl transform scale-100 transition-transform border border-red-100">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trash2 className="w-8 h-8 text-red-600" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Padam Rekod?</h3>
+                <p className="text-slate-600 mb-6 text-sm">
+                  Tarikh: {formatDate(logToDelete.date)} <br/>
+                  Oleh: {logToDelete.userName}
+                  <br/><span className="text-xs text-red-500 mt-2 block">Tindakan ini tidak boleh dikembalikan.</span>
+                </p>
+                <div className="flex space-x-3">
+                  <button onClick={() => setLogToDelete(null)} className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-lg font-semibold hover:bg-slate-200 transition-colors">Batal</button>
+                  <button onClick={() => { onDeleteLog(logToDelete.id); setLogToDelete(null); }} className="flex-1 bg-red-600 text-white py-2.5 rounded-lg font-semibold hover:bg-red-700 transition-colors shadow-lg">Padam</button>
+                </div>
+              </div>
+            </div>
+          </div>
+      )}
+    </div>
+  );
+};
+
+const AdminStatsTab = ({ logs, allUsers, combinedLocations, combinedActivityTypes }) => {
+  const [filterMonth, setFilterMonth] = useState(''); const [filterStaff, setFilterStaff] = useState(''); const [filterPlace, setFilterPlace] = useState(''); const [filterType, setFilterType] = useState('');
+  const filteredLogs = logs.filter(log => { if (!log.date) return false; const matchMonth = filterMonth ? log.date.startsWith(filterMonth) : true; const matchStaff = filterStaff ? log.userName === filterStaff : true; const matchPlace = filterPlace ? log.location === filterPlace : true; const matchType = filterType ? log.type === filterType : true; return matchMonth && matchStaff && matchPlace && matchType; });
+  const getChartData = (key) => { const counts = filteredLogs.reduce((acc, log) => { const val = log[key] || 'Lain-lain'; acc[val] = (acc[val] || 0) + 1; return acc; }, {}); const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1']; return Object.keys(counts).map((label, i) => ({ label, value: counts[label], color: colors[i % colors.length] })).sort((a,b) => b.value - a.value); };
+
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100"><h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><Filter className="w-5 h-5 mr-2 text-blue-600" /> Saringan Data Statistik</h3><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"><div><label className="block text-xs font-semibold text-slate-500 mb-1">Bulan</label><input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white" /></div><div><label className="block text-xs font-semibold text-slate-500 mb-1">Staf</label><select value={filterStaff} onChange={(e) => setFilterStaff(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white"><option value="">Semua Staf</option>{allUsers.map((u, idx) => <option key={idx} value={u}>{u}</option>)}</select></div><div><label className="block text-xs font-semibold text-slate-500 mb-1">Lokasi</label><select value={filterPlace} onChange={(e) => setFilterPlace(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white"><option value="">Semua Lokasi</option>{combinedLocations.map((loc, idx) => <option key={loc.name} value={loc.name}>{loc.name}</option>)}</select></div><div><label className="block text-xs font-semibold text-slate-500 mb-1">Perkara</label><select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white"><option value="">Semua Perkara</option>{combinedActivityTypes.map((type, idx) => <option key={idx} value={type}>{type}</option>)}</select></div></div><div className="mt-4 flex justify-end"><button onClick={() => { setFilterMonth(''); setFilterStaff(''); setFilterPlace(''); setFilterType(''); }} className="text-sm text-blue-600 hover:text-blue-800 font-medium">Reset Saringan</button></div></div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col"><h4 className="font-bold text-slate-800 text-center mb-6 border-b pb-2">Peratus Mengikut Perkara</h4><div className="flex-1 flex items-center justify-center"><ConicPieChart data={getChartData('type')} /></div></div>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col"><h4 className="font-bold text-slate-800 text-center mb-6 border-b pb-2">Peratus Mengikut Tempat</h4><div className="flex-1 flex items-center justify-center"><ConicPieChart data={getChartData('location')} /></div></div>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col"><h4 className="font-bold text-slate-800 text-center mb-6 border-b pb-2">Peratus Mengikut Staf</h4><div className="flex-1 flex items-center justify-center"><ConicPieChart data={getChartData('userName')} totalLabel="Staf Aktif" /></div></div>
+      </div>
+    </div>
+  );
+};
+
+const AdminLeaderboardTab = ({ logs }) => {
+  const totalEntries = logs.reduce((acc, log) => { acc[log.userName] = (acc[log.userName] || 0) + 1; return acc; }, {});
+  const sortedTotal = Object.entries(totalEntries).sort((a, b) => b[1] - a[1]).map(([name, count], i) => ({ rank: i + 1, name, count }));
+  const coachingLogs = logs.filter(log => { const text = (log.type + ' ' + log.catatan).toLowerCase(); return text.includes('bimbingan') || text.includes('coaching') || text.includes('mentoring'); });
+  const coachingEntries = coachingLogs.reduce((acc, log) => { acc[log.userName] = (acc[log.userName] || 0) + 1; return acc; }, {});
+  const sortedCoaching = Object.entries(coachingEntries).sort((a, b) => b[1] - a[1]).map(([name, count], i) => ({ rank: i + 1, name, count }));
+  const RankTable = ({ title, data, icon: Icon, color }) => ( <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden h-full"><div className={`p-4 ${color} text-white font-bold flex items-center`}><Icon className="w-5 h-5 mr-2" /> {title}</div><table className="w-full text-sm text-left text-slate-600"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-6 py-3 w-16">#</th><th className="px-6 py-3">Nama Pegawai</th><th className="px-6 py-3 text-right">Jumlah</th></tr></thead><tbody>{data.length > 0 ? data.map((item) => (<tr key={item.name} className="border-b hover:bg-slate-50 last:border-0"><td className="px-6 py-4 font-bold text-slate-400">{item.rank === 1 ? '🥇' : item.rank === 2 ? '🥈' : item.rank === 3 ? '🥉' : item.rank}</td><td className="px-6 py-4 font-medium text-slate-900">{item.name}</td><td className="px-6 py-4 text-right font-bold text-blue-900">{item.count}</td></tr>)) : (<tr><td colSpan="3" className="px-6 py-8 text-center text-slate-400">Tiada data direkodkan.</td></tr>)}</tbody></table></div>);
+  return ( <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500"><RankTable title="Ranking Pengisian Terbanyak" data={sortedTotal} icon={Trophy} color="bg-blue-600" /><RankTable title="Ranking Coaching & Mentoring" data={sortedCoaching} icon={TrendingUp} color="bg-green-600" /></div> );
+};
+
+// ** TAB 5: LAPORAN BULANAN (DENGAN FILTER) **
+const AdminReportTab = ({ logs, allUsers, combinedLocations, combinedActivityTypes }) => {
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [filterStaff, setFilterStaff] = useState(''); 
+  const [filterPlace, setFilterPlace] = useState(''); 
+  const [filterType, setFilterType] = useState('');
+
+  const filteredLogs = logs.filter(log => {
+    // Safety check for log.date existence
+    if (!log.date) return false;
+     
+    // Default filter by selected Month
+    const matchMonth = selectedMonth ? log.date.startsWith(selectedMonth) : true;
+     
+    // Additional Optional Filters
+    const matchStaff = filterStaff ? log.userName === filterStaff : true;
+    const matchPlace = filterPlace ? log.location === filterPlace : true;
+    const matchType = filterType ? log.type === filterType : true;
+     
+    return matchMonth && matchStaff && matchPlace && matchType;
+  });
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+          <Filter className="w-5 h-5 mr-2 text-blue-600" /> Saring & Muat Turun Laporan
+        </h3>
+        
+        {/* Filters Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">Bulan</label>
+            <input 
+              type="month" 
+              value={selectedMonth} 
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">Staf</label>
+            <select value={filterStaff} onChange={(e) => setFilterStaff(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white">
+              <option value="">Semua Staf</option>
+              {allUsers.map((u, idx) => <option key={idx} value={u}>{u}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">Lokasi</label>
+            <select value={filterPlace} onChange={(e) => setFilterPlace(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white">
+              <option value="">Semua Lokasi</option>
+              {combinedLocations.map((loc, idx) => <option key={loc.name} value={loc.name}>{loc.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">Perkara</label>
+            <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white">
+              <option value="">Semua Perkara</option>
+              {combinedActivityTypes.map((type, idx) => <option key={idx} value={type}>{type}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100 pt-4">
+            <button 
+            onClick={() => downloadCSV(filteredLogs, `Laporan_Admin_${selectedMonth}.csv`)}
+            className="flex items-center justify-center space-x-2 bg-green-600 text-white p-3 rounded-lg shadow-sm hover:bg-green-700 transition-colors"
+            >
+            <FileSpreadsheet className="w-5 h-5" />
+            <div className="text-left">
+                <div className="font-bold text-sm">Muat Turun Excel (CSV)</div>
+            </div>
+            </button>
+
+            <button 
+            onClick={() => window.print()}
+            className="flex items-center justify-center space-x-2 bg-slate-700 text-white p-3 rounded-lg shadow-sm hover:bg-slate-800 transition-colors"
+            >
+            <Printer className="w-5 h-5" />
+            <div className="text-left">
+                <div className="font-bold text-sm">Cetak / Simpan PDF</div>
+            </div>
+            </button>
+        </div>
+      </div>
+
+      {/* Preview Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden print:shadow-none print:border-none">
+        <div className="p-4 bg-slate-50 border-b border-slate-100 font-semibold text-slate-700 flex justify-between items-center">
+          <span>Pratonton Laporan: {selectedMonth}</span>
+          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">{filteredLogs.length} Rekod Dijumpai</span>
+        </div>
+        <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left text-slate-600">
+            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr>
+                <th className="px-4 py-3">Tarikh</th>
+                <th className="px-4 py-3">Nama Pegawai</th>
+                <th className="px-4 py-3">Tempat</th>
+                <th className="px-4 py-3">Perkara</th>
+                <th className="px-4 py-3">Catatan</th>
+                </tr>
+            </thead>
+            <tbody>
+                {filteredLogs.length > 0 ? filteredLogs.map((log) => (
+                <tr key={log.id} className="border-b hover:bg-slate-50">
+                    <td className="px-4 py-3">{formatDate(log.date)}</td>
+                    <td className="px-4 py-3 font-medium">{log.userName}</td>
+                    <td className="px-4 py-3">{log.location}</td>
+                    <td className="px-4 py-3">{log.type}</td>
+                    <td className="px-4 py-3 italic">{log.catatan || '-'}</td>
+                </tr>
+                )) : (
+                <tr><td colSpan="5" className="px-4 py-8 text-center text-slate-400">Tiada rekod untuk padanan ini.</td></tr>
+                )}
+            </tbody>
+            </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AdminDashboard = ({ user, logs, data, onAddLocation, onDeleteLocation, onAddActivity, onDeleteActivity, onDeleteUser, onResetPassword, onDeleteLog, allUsers, combinedLocations, combinedActivityTypes }) => {
+  const [activeTab, setActiveTab] = useState('data');
+  return (
+    <div className="p-6 lg:p-10 flex-1">
+      <h1 className="text-2xl font-bold text-slate-800 mb-2">Paparan Utama Admin</h1>
+      <p className="text-slate-500 mb-6">Urus sistem E-Gerak PPD Ranau.</p>
+      <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 border-b border-slate-200 mb-6 overflow-x-auto">
+        <button onClick={() => setActiveTab('data')} className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'data' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><span className="flex items-center space-x-2"><Settings className="w-4 h-4"/> <span>1. Pengurusan Data</span></span></button>
+        <button onClick={() => setActiveTab('analisis')} className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'analisis' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><span className="flex items-center space-x-2"><Filter className="w-4 h-4"/> <span>2. Analisis & Rekod</span></span></button>
+        <button onClick={() => setActiveTab('stats')} className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'stats' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><span className="flex items-center space-x-2"><PieChart className="w-4 h-4"/> <span>3. Statistik</span></span></button>
+        <button onClick={() => setActiveTab('leaderboard')} className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'leaderboard' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><span className="flex items-center space-x-2"><Trophy className="w-4 h-4"/> <span>4. Leaderboard</span></span></button>
+        <button onClick={() => setActiveTab('laporan')} className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'laporan' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><span className="flex items-center space-x-2"><FileText className="w-4 h-4"/> <span>5. Laporan Bulanan</span></span></button>
+      </div>
+      <div className="min-h-[500px]">
+        {activeTab === 'data' && (<AdminDataManagementTab locations={data.locations} activityTypes={data.activityTypes} users={data.users} onAddLocation={onAddLocation} onDeleteLocation={onDeleteLocation} onAddActivity={onAddActivity} onDeleteActivity={onDeleteActivity} onDeleteUser={onDeleteUser} onResetPassword={onResetPassword} />)}
+        {activeTab === 'analisis' && (<AdminAnalysisTab logs={logs} allUsers={allUsers} combinedLocations={combinedLocations} combinedActivityTypes={combinedActivityTypes} onDeleteLog={onDeleteLog} />)}
+        {activeTab === 'stats' && (<AdminStatsTab logs={logs} allUsers={allUsers} combinedLocations={combinedLocations} combinedActivityTypes={combinedActivityTypes} />)}
+        {activeTab === 'leaderboard' && <AdminLeaderboardTab logs={logs} />}
+        {activeTab === 'laporan' && (<AdminReportTab logs={logs} allUsers={allUsers} combinedLocations={combinedLocations} combinedActivityTypes={combinedActivityTypes} />)}
+      </div>
+    </div>
+  );
+};
+
+// --- APP UTAMA ---
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false); 
+  const [data, setData] = useState(INITIAL_DATA);
+
+  // AUTHENTICATION HANDLERS (Local Mock - Improved Logic)
+  const handleLogin = (username, password, role) => {
+    // Cari user tanpa mengira role pada tab untuk elak kekeliruan, kemudian sahkan password
+    const foundUser = data.users.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
+    
+    if (foundUser) { 
+        setUser(foundUser); 
+        setError(''); 
+        setSuccessMsg(''); 
+    } else { 
+        setError('ID Pengguna atau Kata Laluan tidak sah.'); 
+        setSuccessMsg(''); 
+    }
+  };
+
+  const handleRegister = (newUser) => { const id = data.users.length + 1; const userEntry = { ...newUser, id }; setData(prev => ({ ...prev, users: [...prev.users, userEntry] })); setSuccessMsg('Pendaftaran berjaya! Sila log masuk.'); setError(''); };
+  const handleLogout = () => { setUser(null); setIsMobileMenuOpen(false); setSuccessMsg(''); setError(''); };
+   
+  // DATA HANDLERS
+  const handleAddLog = (newLogData) => { const newLog = { id: Date.now(), userId: user.id, userName: user.name, ...newLogData }; setData(prev => ({ ...prev, logs: [newLog, ...prev.logs] })); setShowSuccessModal(true); };
+  
+  // NEW: Delete Log Handler
+  const handleDeleteLog = (logId) => {
+    setData(prev => ({ ...prev, logs: prev.logs.filter(log => log.id !== logId) }));
+  };
+
+  // NEW: Reset Password Handler
+  const handleResetPassword = (userId) => {
+    setData(prev => ({
+        ...prev,
+        users: prev.users.map(u => u.id === userId ? { ...u, password: '123' } : u)
+    }));
+    // Optionally trigger a toast or small alert here, but the modal will close, implying success.
+  };
+   
+  // ADMIN HANDLERS
+  const handleAddLocation = (newLoc) => setData(prev => ({ ...prev, locations: [...prev.locations, newLoc] }));
+  const handleDeleteLocation = (index) => setData(prev => ({ ...prev, locations: prev.locations.filter((_, i) => i !== index) }));
+  const handleAddActivity = (newActivity) => setData(prev => ({ ...prev, activityTypes: [...prev.activityTypes, newActivity] }));
+  const handleDeleteActivity = (index) => setData(prev => ({ ...prev, activityTypes: prev.activityTypes.filter((_, i) => i !== index) }));
+  const handleDeleteUser = (userId) => setData(prev => ({ ...prev, users: prev.users.filter(u => u.id !== userId) }));
+
+  // DYNAMIC COMBINED DATA
+  // Memoized: Combines predefined locations with any new custom locations found in logs
+  // Returns unique array of objects { name, category }
+  const combinedLocations = useMemo(() => {
+    // Standard locations from master list
+    const masterLocs = data.locations;
+    
+    // Find unique locations in logs that are NOT in master list
+    const logLocs = data.logs
+        .map(l => l.location)
+        .filter(Boolean)
+        .filter(logLocName => !masterLocs.some(ml => ml.name === logLocName));
+    
+    // Create objects for these 'custom' locations
+    const customLocObjects = [...new Set(logLocs)].map(name => ({ name, category: 'Lain-lain' }));
+
+    // Combine and sort
+    return [...masterLocs, ...customLocObjects].sort((a,b) => a.name.localeCompare(b.name));
+  }, [data.logs, data.locations]);
+
+  const combinedActivityTypes = useMemo(() => {
+    const logTypes = data.logs.map(l => l.type).filter(Boolean);
+    return Array.from(new Set([...data.activityTypes, ...logTypes])).sort();
+  }, [data.logs, data.activityTypes]);
+
+  const allUsers = useMemo(() => {
+    const logUserNames = data.logs.map(l => l.userName);
+    const registeredUserNames = data.users.map(u => u.name);
+    return Array.from(new Set([...registeredUserNames, ...logUserNames])).sort();
+  }, [data.logs, data.users]);
+
+  const relevantLogs = user ? (user.role === 'admin' ? data.logs : data.logs.filter(log => log.userId === user.id)) : [];
+
+  if (!user) return <LoginPage onLogin={handleLogin} onRegister={handleRegister} error={error} setError={setError} successMsg={successMsg} />;
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex font-sans">
+      <aside className="hidden md:flex flex-col w-64 bg-blue-900 text-white fixed h-full z-10 print:hidden">
+        <div className="p-6 flex items-center space-x-3 border-b border-blue-800"><div className="bg-white p-1 rounded-full"><MapPin className="w-6 h-6 text-blue-900" /></div><span className="font-bold text-lg tracking-wide">E-Gerak</span></div>
+        <div className="flex-1 p-4"><div className="p-4 bg-blue-800 rounded-xl mb-4"><p className="text-xs text-blue-300 uppercase tracking-wider mb-1">Akaun</p><p className="font-bold truncate">{user.name}</p><p className="text-xs text-blue-200">{user.role === 'admin' ? 'Pentadbir Sistem' : 'Pegawai / Staf'}</p></div></div>
+        <div className="p-4 border-t border-blue-800"><button onClick={handleLogout} className="flex items-center space-x-2 text-sm text-blue-200 hover:text-white w-full px-2 py-2 rounded-lg hover:bg-blue-800 transition-colors"><LogOut className="w-4 h-4" /><span>Log Keluar</span></button></div>
+      </aside>
+      <main className="flex-1 md:ml-64 flex flex-col min-h-screen">
+        <header className="bg-white shadow-sm sticky top-0 z-20 md:hidden px-4 py-3 flex justify-between items-center print:hidden"><div className="flex items-center space-x-2"><MapPin className="text-blue-900 w-6 h-6" /><span className="font-bold text-blue-900">E-Gerak</span></div><button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>{isMobileMenuOpen ? <X className="text-slate-600" /> : <Menu className="text-slate-600" />}</button></header>
+        {isMobileMenuOpen && (<div className="md:hidden bg-blue-900 text-white p-4 space-y-3 absolute top-14 w-full z-20 shadow-xl print:hidden"><div className="pb-3 border-b border-blue-700 mb-3"><p className="font-bold">{user.name}</p><p className="text-xs text-blue-300">{user.department}</p></div><button onClick={handleLogout} className="block w-full text-left py-2 text-red-300">Log Keluar</button></div>)}
+        {user.role === 'staff' ? (
+          <StaffDashboard user={user} logs={relevantLogs} onAddLog={handleAddLog} combinedLocations={combinedLocations} combinedActivityTypes={combinedActivityTypes} />
+        ) : (
+          <AdminDashboard 
+            user={user} logs={relevantLogs} data={data}
+            onAddLocation={handleAddLocation} onDeleteLocation={handleDeleteLocation}
+            onAddActivity={handleAddActivity} onDeleteActivity={handleDeleteActivity} onDeleteUser={handleDeleteUser}
+            onResetPassword={handleResetPassword} onDeleteLog={handleDeleteLog}
+            allUsers={allUsers} combinedLocations={combinedLocations} combinedActivityTypes={combinedActivityTypes}
+          />
+        )}
+      </main>
+      <SuccessModal isOpen={showSuccessModal} onClose={() => setShowSuccessModal(false)} message="Laporan telah dihantar." />
+    </div>
+  );
+}
