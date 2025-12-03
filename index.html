@@ -15,7 +15,7 @@
     <!-- 3. Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- 4. Firebase SDKs (Versi Compat) -->
+    <!-- 4. Firebase SDKs (Versi Compat - Paling stabil untuk single file) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -30,6 +30,20 @@
         .animate-spin { animation: spin 1s linear infinite; }
         .fade-in { animation: fadeIn 0.5s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Green Dot Pulse Animation */
+        @keyframes pulse-green {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(74, 222, 128, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+        }
+        .online-dot {
+            width: 10px;
+            height: 10px;
+            background-color: #22c55e;
+            border-radius: 50%;
+            animation: pulse-green 2s infinite;
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900">
@@ -51,41 +65,34 @@
         if (!firebase.apps.length) {
             try {
                 firebase.initializeApp(firebaseConfig);
+                console.log("Firebase berjaya disambungkan.");
             } catch (e) {
-                console.error("Ralat Konfigurasi Firebase:", e);
+                console.error("Ralat Firebase:", e);
             }
         }
         
         const db = firebase.apps.length ? firebase.firestore() : null;
         const auth = firebase.apps.length ? firebase.auth() : null;
 
-        // --- DATA LALAI (FALLBACK) ---
+        // --- 2. DATA LALAI ---
         const CURRENT_YEAR = new Date().getFullYear();
         const INITIAL_DATA = {
             users: [
                 { id: '1', username: 'shell', password: 'shellyap', role: 'admin', name: 'Shell Yap', department: 'IT / Pengurusan' },
-                { id: '2', username: 'staff', password: '123', role: 'staff', name: 'En. Razak', department: 'Unit Pembangunan' },
-                { id: '3', username: 'guru', password: '123', role: 'staff', name: 'Pn. Siti', department: 'Unit Akademik' }
+                { id: '2', username: 'staff', password: '123', role: 'staff', name: 'En. Razak', department: 'Unit Pembangunan' }
             ],
             logs: [],
-            locations: [
-                {id: '1', name: 'PPD Ranau'}, {id: '2', name: 'SK Pekan Ranau'}, {id: '3', name: 'SK Kilimu'}, 
-                {id: '4', name: 'SMK Ranau'}, {id: '5', name: 'SMK Mat Salleh'}, {id: '6', name: 'JPN Sabah'}
-            ],
-            activityTypes: [
-                {id: '1', name: 'Lawatan Bimbingan'}, {id: '2', name: 'Mesyuarat'}, {id: '3', name: 'Bengkel'}, 
-                {id: '4', name: 'Urusan Rasmi'}, {id: '5', name: 'Pemantauan'}
-            ]
+            locations: [{id: '1', name: 'PPD Ranau'}, {id: '2', name: 'SK Pekan Ranau'}],
+            activityTypes: [{id: '1', name: 'Lawatan Bimbingan'}, {id: '2', name: 'Mesyuarat'}]
         };
 
-        // --- 2. ICONS & UTILS ---
+        // --- 3. ICONS ---
         const { useState, useEffect, useMemo } = React;
 
         const IconBase = ({ children, className }) => (
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{children}</svg>
         );
         
-        // Icon set definitions
         const Icons = {
             MapPin: (p) => <IconBase {...p}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></IconBase>,
             User: (p) => <IconBase {...p}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></IconBase>,
@@ -112,9 +119,11 @@
             FileSpreadsheet: (p) => <IconBase {...p}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2"/><path d="M8 17h2"/><path d="M14 13h2"/><path d="M14 17h2"/></IconBase>,
             Menu: (p) => <IconBase {...p}><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></IconBase>,
             X: (p) => <IconBase {...p}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></IconBase>,
-            UsersIcon: (p) => <IconBase {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></IconBase>
+            UsersIcon: (p) => <IconBase {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></IconBase>,
+            Key: (p) => <IconBase {...p}><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></IconBase>
         };
 
+        // --- 4. UTILS ---
         const formatDate = (dateString) => {
             if (!dateString) return '-';
             const parts = dateString.split('-');
@@ -141,13 +150,21 @@
             link.click();
             document.body.removeChild(link);
         };
+        
+        // Check online status helper (5 minutes threshold)
+        const isUserOnline = (lastSeen) => {
+            if (!lastSeen) return false;
+            const date = lastSeen.toDate ? lastSeen.toDate() : new Date(lastSeen);
+            const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+            return date > fiveMinutesAgo;
+        };
 
-        // --- 3. COMPONENTS ---
+        // --- 5. COMPONENTS ---
 
         const SuccessModal = ({ isOpen, onClose, message }) => {
             if (!isOpen) return null;
             return (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 fade-in">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] p-4 fade-in">
                     <div className="bg-white rounded-xl max-w-sm w-full p-6 shadow-2xl transform scale-100 transition-transform">
                         <div className="text-center">
                             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -165,18 +182,50 @@
         const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, itemName }) => {
             if (!isOpen) return null;
             return (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 fade-in">
-                    <div className="bg-white rounded-xl max-w-sm w-full p-6 shadow-2xl border border-red-100">
+                <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[150] p-4 fade-in">
+                    <div className="bg-white rounded-xl max-w-sm w-full p-6 shadow-2xl border-2 border-red-50 transform scale-100 transition-all">
                         <div className="text-center">
-                            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
                                 <Icons.AlertCircle className="w-8 h-8 text-red-600" />
                             </div>
                             <h3 className="text-xl font-bold text-slate-800 mb-2">Pengesahan Padam</h3>
-                            <p className="text-slate-600 mb-6">Adakah anda pasti mahu memadam <strong>"{itemName}"</strong>?<br/><span className="text-xs text-red-500">Tindakan ini tidak boleh dikembalikan.</span></p>
+                            <p className="text-slate-600 mb-6">Adakah anda pasti mahu memadam <strong>"{itemName}"</strong>?<br/><span className="text-xs text-red-500 font-semibold">Tindakan ini tidak boleh dikembalikan.</span></p>
                             <div className="flex space-x-3">
-                                <button onClick={onClose} className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-lg font-semibold hover:bg-slate-200">Batal</button>
-                                <button onClick={onConfirm} className="flex-1 bg-red-600 text-white py-2.5 rounded-lg font-semibold hover:bg-red-700 shadow-lg">Ya, Padam</button>
+                                <button type="button" onClick={onClose} className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-lg font-semibold hover:bg-slate-200 transition-colors">Batal</button>
+                                <button type="button" onClick={onConfirm} className="flex-1 bg-red-600 text-white py-2.5 rounded-lg font-semibold hover:bg-red-700 transition-colors shadow-lg">Ya, Padam</button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- NEW: PASSWORD RESET MODAL ---
+        const ResetPasswordModal = ({ isOpen, onClose, onConfirm, userName }) => {
+            const [newPassword, setNewPassword] = useState('');
+
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[150] p-4 fade-in">
+                    <div className="bg-white rounded-xl max-w-sm w-full p-6 shadow-2xl border border-blue-100">
+                        <h3 className="text-lg font-bold text-slate-800 mb-1">Reset Kata Laluan</h3>
+                        <p className="text-sm text-slate-500 mb-4">Tetapkan kata laluan baharu untuk <strong>{userName}</strong>.</p>
+                        <input 
+                            type="text" 
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="w-full border border-slate-300 rounded-lg p-2 text-sm mb-4"
+                            placeholder="Kata Laluan Baru"
+                        />
+                        <div className="flex space-x-3">
+                            <button onClick={onClose} className="flex-1 bg-slate-100 text-slate-700 py-2 rounded-lg font-semibold hover:bg-slate-200 transition-colors">Batal</button>
+                            <button 
+                                onClick={() => { if(newPassword) { onConfirm(newPassword); setNewPassword(''); } }} 
+                                className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md"
+                                disabled={!newPassword}
+                            >
+                                Simpan
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -186,12 +235,12 @@
         const PermissionErrorBanner = ({ show }) => {
             if (!show) return null;
             return (
-                <div className="fixed top-0 left-0 right-0 bg-red-600 text-white p-4 text-center shadow-lg z-[100] animate-bounce">
+                <div className="fixed top-0 left-0 right-0 bg-red-600 text-white p-4 text-center shadow-lg z-[200] animate-bounce">
                     <div className="max-w-4xl mx-auto flex items-center justify-center gap-3">
                         <Icons.AlertTriangle className="w-6 h-6 text-white" />
                         <div>
-                            <p className="font-bold">Ralat Kebenaran Database (Permission Denied)</p>
-                            <p className="text-sm opacity-90">Sila pergi ke Firebase Console > Firestore Database > Rules dan tukar kepada "Test Mode".</p>
+                            <p className="font-bold">Ralat Kebenaran Database</p>
+                            <p className="text-sm opacity-90">Sila semak Firestore Rules di Firebase Console.</p>
                         </div>
                     </div>
                 </div>
@@ -227,6 +276,7 @@
             );
         };
 
+        // --- LOGIN ---
         const LoginPage = ({ onLogin, onRegister, error, usersLoading }) => {
             const [isRegistering, setIsRegistering] = useState(false);
             const [roleTab, setRoleTab] = useState('staff');
@@ -286,6 +336,7 @@
             );
         };
 
+        // --- STAFF ---
         const StaffEntryTab = ({ onSubmit, availableLocations, availableTypes }) => {
             const [formData, setFormData] = useState({ date: new Date().toISOString().split('T')[0], location: '', type: '', catatan: '' });
             const [useCustomLocation, setUseCustomLocation] = useState(false);
@@ -353,24 +404,126 @@
             );
         };
 
-        // --- ADMIN DASHBOARD ---
-        const AdminDataManagementTab = ({ locations, activityTypes, users, onAddLocation, onDeleteLocation, onAddActivity, onDeleteActivity, onDeleteUser }) => {
+        // --- ADMIN DASHBOARD (UPDATED) ---
+        // Tab 1: Pengurusan Data & Pengguna (Section 1: Master, Section 2: Online, Section 3: Registered)
+        const AdminDataManagementTab = ({ 
+            locations, activityTypes, users, logs,
+            onAddLocation, onDeleteLocation, 
+            onAddActivity, onDeleteActivity,
+            onDeleteUser, onResetUserPassword 
+        }) => {
             const [newLocation, setNewLocation] = useState('');
             const [newActivity, setNewActivity] = useState('');
             const [itemToDelete, setItemToDelete] = useState(null); 
+            const [userToReset, setUserToReset] = useState(null);
+
             const triggerDelete = (type, id, name) => setItemToDelete({ type, id, name });
             const confirmDelete = () => { if (!itemToDelete) return; const { type, id } = itemToDelete; if (type === 'location') onDeleteLocation(id); if (type === 'activity') onDeleteActivity(id); if (type === 'user') onDeleteUser(id); setItemToDelete(null); };
+
+            // Process Users
             const sortedUsers = [...users].sort((a, b) => a.name.localeCompare(b.name));
             const nameCounts = sortedUsers.reduce((acc, user) => { acc[user.name] = (acc[user.name] || 0) + 1; return acc; }, {});
+            
+            // Section 2 Logic: Online Users (Green Dot)
+            const onlineUsers = sortedUsers.filter(u => isUserOnline(u.lastSeen));
 
             return (
-                <div className="space-y-8 fade-in">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100"><h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><Icons.MapPin className="w-5 h-5 mr-2 text-blue-600" /> Senarai Lokasi (Master)</h3><div className="flex gap-2 mb-4"><input type="text" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} placeholder="Tambah lokasi..." className="flex-1 border border-slate-300 rounded-lg p-2 text-sm" /><button onClick={() => { if(newLocation) { onAddLocation(newLocation); setNewLocation(''); }}} className="bg-blue-600 text-white px-3 rounded-lg hover:bg-blue-700"><Icons.Plus className="w-5 h-5" /></button></div><div className="max-h-60 overflow-y-auto space-y-2">{locations.map((loc) => (<div key={loc.id} className="flex justify-between items-center bg-slate-50 p-2 rounded text-sm"><span>{loc.name}</span><button onClick={() => triggerDelete('location', loc.id, loc.name)} className="text-slate-400 hover:text-red-500 p-1"><Icons.Trash2 className="w-4 h-4" /></button></div>))}</div></div>
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100"><h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><Icons.FileText className="w-5 h-5 mr-2 text-blue-600" /> Senarai Perkara (Master)</h3><div className="flex gap-2 mb-4"><input type="text" value={newActivity} onChange={(e) => setNewActivity(e.target.value)} placeholder="Tambah perkara..." className="flex-1 border border-slate-300 rounded-lg p-2 text-sm" /><button onClick={() => { if(newActivity) { onAddActivity(newActivity); setNewActivity(''); }}} className="bg-blue-600 text-white px-3 rounded-lg hover:bg-blue-700"><Icons.Plus className="w-5 h-5" /></button></div><div className="max-h-60 overflow-y-auto space-y-2">{activityTypes.map((type) => (<div key={type.id} className="flex justify-between items-center bg-slate-50 p-2 rounded text-sm"><span>{type.name}</span><button onClick={() => triggerDelete('activity', type.id, type.name)} className="text-slate-400 hover:text-red-500 p-1"><Icons.Trash2 className="w-4 h-4" /></button></div>))}</div></div>
+                <div className="space-y-10 fade-in">
+                    
+                    {/* SECTION 1: MASTER DATA */}
+                    <div>
+                         <h2 className="text-xl font-bold text-slate-800 mb-4 border-b pb-2">Seksyen 1: Data Master (Lokasi & Perkara)</h2>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100"><h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><Icons.MapPin className="w-5 h-5 mr-2 text-blue-600" /> Senarai Lokasi</h3><div className="flex gap-2 mb-4"><input type="text" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} placeholder="Tambah lokasi..." className="flex-1 border border-slate-300 rounded-lg p-2 text-sm" /><button onClick={() => { if(newLocation) { onAddLocation(newLocation); setNewLocation(''); }}} className="bg-blue-600 text-white px-3 rounded-lg hover:bg-blue-700"><Icons.Plus className="w-5 h-5" /></button></div><div className="max-h-60 overflow-y-auto space-y-2">{locations.map((loc) => (<div key={loc.id} className="flex justify-between items-center bg-slate-50 p-2 rounded text-sm"><span>{loc.name}</span><button type="button" onClick={() => triggerDelete('location', loc.id, loc.name)} className="text-slate-400 hover:text-red-500 p-2"><Icons.Trash2 className="w-5 h-5" /></button></div>))}</div></div>
+                            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100"><h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><Icons.FileText className="w-5 h-5 mr-2 text-blue-600" /> Senarai Perkara</h3><div className="flex gap-2 mb-4"><input type="text" value={newActivity} onChange={(e) => setNewActivity(e.target.value)} placeholder="Tambah perkara..." className="flex-1 border border-slate-300 rounded-lg p-2 text-sm" /><button onClick={() => { if(newActivity) { onAddActivity(newActivity); setNewActivity(''); }}} className="bg-blue-600 text-white px-3 rounded-lg hover:bg-blue-700"><Icons.Plus className="w-5 h-5" /></button></div><div className="max-h-60 overflow-y-auto space-y-2">{activityTypes.map((type) => (<div key={type.id} className="flex justify-between items-center bg-slate-50 p-2 rounded text-sm"><span>{type.name}</span><button type="button" onClick={() => triggerDelete('activity', type.id, type.name)} className="text-slate-400 hover:text-red-500 p-2"><Icons.Trash2 className="w-5 h-5" /></button></div>))}</div></div>
+                        </div>
                     </div>
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden"><div className="p-6 border-b border-slate-100"><h3 className="text-lg font-bold text-slate-800 flex items-center"><Icons.UsersIcon className="w-5 h-5 mr-2 text-blue-600" /> Senarai Pengguna</h3></div><div className="overflow-x-auto"><table className="w-full text-sm text-left text-slate-600"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-6 py-3">Nama Penuh</th><th className="px-6 py-3">ID</th><th className="px-6 py-3">Jabatan</th><th className="px-6 py-3 text-right">Tindakan</th></tr></thead><tbody>{sortedUsers.map(user => { const isDuplicate = nameCounts[user.name] > 1; return (<tr key={user.id} className={`border-b ${isDuplicate ? 'bg-pink-50' : 'hover:bg-slate-50'}`}><td className="px-6 py-4 font-medium text-slate-900 flex items-center">{user.name}{isDuplicate && <span className="ml-2 text-pink-600"><Icons.AlertTriangle className="w-4 h-4"/></span>}</td><td className="px-6 py-4">{user.username}</td><td className="px-6 py-4">{user.department}</td><td className="px-6 py-4 text-right">{user.role !== 'admin' && (<button onClick={() => triggerDelete('user', user.id, user.name)} className="text-red-500 hover:text-red-700 bg-red-50 p-2 rounded-lg"><Icons.Trash2 className="w-4 h-4" /></button>)}</td></tr>); })}</tbody></table></div></div>
+
+                    {/* SECTION 2: ONLINE USERS (GREEN DOT) */}
+                    <div>
+                        <h2 className="text-xl font-bold text-slate-800 mb-4 border-b pb-2">Seksyen 2: Pengguna Sedang Online</h2>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                             {onlineUsers.length === 0 ? (
+                                 <p className="text-slate-400 italic">Tiada pengguna sedang online.</p>
+                             ) : (
+                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {onlineUsers.map(u => (
+                                        <div key={u.id} className="flex items-center p-3 bg-white rounded-lg border border-slate-200 shadow-sm">
+                                            <div className="relative mr-3">
+                                                <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center text-slate-600 font-bold">
+                                                    {u.name.charAt(0)}
+                                                </div>
+                                                <div className="absolute bottom-0 right-0 online-dot border-2 border-white"></div>
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-sm text-slate-800">{u.name}</p>
+                                                <p className="text-xs text-slate-500">{u.department}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                 </div>
+                             )}
+                        </div>
+                    </div>
+
+                    {/* SECTION 3: REGISTERED USERS & MANAGEMENT */}
+                    <div>
+                        <h2 className="text-xl font-bold text-slate-800 mb-4 border-b pb-2">Seksyen 3: Pengurusan Pengguna Berdaftar</h2>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm text-left text-slate-600">
+                                    <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                                        <tr>
+                                            <th className="px-6 py-3">Nama Penuh</th>
+                                            <th className="px-6 py-3">ID Pengguna</th>
+                                            <th className="px-6 py-3">Jabatan</th>
+                                            <th className="px-6 py-3 text-right">Tindakan</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {sortedUsers.map(user => { 
+                                            const isDuplicate = nameCounts[user.name] > 1; 
+                                            return (
+                                                <tr key={user.id} className={`border-b ${isDuplicate ? 'bg-pink-50' : 'hover:bg-slate-50'}`}>
+                                                    <td className="px-6 py-4 font-medium text-slate-900 flex items-center">
+                                                        {user.name}
+                                                        {isDuplicate && <span className="ml-2 text-pink-600" title="Nama Pendua"><Icons.AlertTriangle className="w-4 h-4"/></span>}
+                                                    </td>
+                                                    <td className="px-6 py-4">{user.username}</td>
+                                                    <td className="px-6 py-4">{user.department}</td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        {user.role !== 'admin' && (
+                                                            <div className="flex justify-end gap-2">
+                                                                <button 
+                                                                    type="button" 
+                                                                    onClick={() => setUserToReset(user)} 
+                                                                    className="text-blue-500 hover:text-blue-700 bg-blue-50 p-2 rounded-lg" 
+                                                                    title="Reset Kata Laluan"
+                                                                >
+                                                                    <Icons.Key className="w-5 h-5" />
+                                                                </button>
+                                                                <button 
+                                                                    type="button" 
+                                                                    onClick={() => triggerDelete('user', user.id, user.name)} 
+                                                                    className="text-red-500 hover:text-red-700 bg-red-50 p-2 rounded-lg" 
+                                                                    title="Padam Pengguna"
+                                                                >
+                                                                    <Icons.Trash2 className="w-5 h-5" />
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ); 
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <DeleteConfirmationModal isOpen={!!itemToDelete} onClose={() => setItemToDelete(null)} onConfirm={confirmDelete} itemName={itemToDelete?.name} />
+                    <ResetPasswordModal isOpen={!!userToReset} onClose={() => setUserToReset(null)} onConfirm={(newPw) => { onResetUserPassword(userToReset.id, newPw); setUserToReset(null); }} userName={userToReset?.name} />
                 </div>
             );
         };
@@ -457,7 +610,7 @@
             );
         };
 
-        const AdminDashboard = ({ user, logs, data, onAddLocation, onDeleteLocation, onAddActivity, onDeleteActivity, onDeleteUser, allUsers, combinedLocations, combinedActivityTypes }) => {
+        const AdminDashboard = ({ user, logs, data, onAddLocation, onDeleteLocation, onAddActivity, onDeleteActivity, onDeleteUser, onResetUserPassword, allUsers, combinedLocations, combinedActivityTypes }) => {
             const [activeTab, setActiveTab] = useState('data');
             return (
                 <div className="p-6 lg:p-10 flex-1">
@@ -471,7 +624,7 @@
                         <button onClick={() => setActiveTab('laporan')} className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'laporan' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500'}`}><span className="flex items-center space-x-2"><Icons.FileText className="w-4 h-4"/> <span>5. Laporan Bulanan</span></span></button>
                     </div>
                     <div className="min-h-[500px]">
-                        {activeTab === 'data' && (<AdminDataManagementTab locations={data.locations} activityTypes={data.activityTypes} users={data.users} onAddLocation={onAddLocation} onDeleteLocation={onDeleteLocation} onAddActivity={onAddActivity} onDeleteActivity={onDeleteActivity} onDeleteUser={onDeleteUser} />)}
+                        {activeTab === 'data' && (<AdminDataManagementTab locations={data.locations} activityTypes={data.activityTypes} users={data.users} logs={logs} onAddLocation={onAddLocation} onDeleteLocation={onDeleteLocation} onAddActivity={onAddActivity} onDeleteActivity={onDeleteActivity} onDeleteUser={onDeleteUser} onResetUserPassword={onResetUserPassword} />)}
                         {activeTab === 'analisis' && (<AdminAnalysisTab logs={logs} allUsers={allUsers} combinedLocations={combinedLocations} combinedActivityTypes={combinedActivityTypes} />)}
                         {activeTab === 'stats' && (<AdminStatsTab logs={logs} allUsers={allUsers} combinedLocations={combinedLocations} combinedActivityTypes={combinedActivityTypes} />)}
                         {activeTab === 'leaderboard' && <AdminLeaderboardTab logs={logs} />}
@@ -548,6 +701,26 @@
                 return () => unsubscribeAuth();
             }, []);
 
+            // --- HEARTBEAT PRESENCE SYSTEM (NEW) ---
+            useEffect(() => {
+                if (!user || !db || !user.id) return;
+
+                const updateHeartbeat = () => {
+                    // Check if this is a real Firestore user (has valid ID from DB)
+                    // Don't try to update 'hardcoded' admin if not in DB
+                    if (user.id && user.id.length > 5) { 
+                         db.collection('egerak_users').doc(user.id).update({
+                             lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+                         }).catch(err => console.log("Heartbeat skipped (likely admin/demo user)"));
+                    }
+                };
+
+                updateHeartbeat(); // Update immediately on login
+                const interval = setInterval(updateHeartbeat, 60000); // Update every 60s
+
+                return () => clearInterval(interval);
+            }, [user]);
+
             // --- AUTH HANDLERS ---
             const handleLogin = (username, password, role) => {
                 // 1. Check State (Firebase Data)
@@ -570,7 +743,10 @@
 
             const handleRegister = (newUser) => {
                 if (db && !dbError) {
-                    db.collection('egerak_users').add(newUser)
+                    db.collection('egerak_users').add({
+                        ...newUser,
+                        lastSeen: firebase.firestore.FieldValue.serverTimestamp() // Init lastSeen
+                    })
                       .then(() => { setSuccessMsg('Pendaftaran berjaya! Sila log masuk.'); setError(''); })
                       .catch(e => setError("Ralat pendaftaran."));
                 } else {
@@ -609,40 +785,37 @@
                 }
             };
 
-            const handleAddLocation = (name) => {
-                if (db && !dbError) db.collection('egerak_locations').add({ name });
-                else setLocations([...locations, { id: Date.now().toString(), name }]);
-            };
-
-            const handleDeleteLocation = (id) => {
-                if (db && !dbError) db.collection('egerak_locations').doc(id).delete();
-                else setLocations(locations.filter(l => l.id !== id));
-            };
-
-            const handleAddActivity = (name) => {
-                if (db && !dbError) db.collection('egerak_activities').add({ name });
-                else setActivityTypes([...activityTypes, { id: Date.now().toString(), name }]);
-            };
-
-            const handleDeleteActivity = (id) => {
-                if (db && !dbError) db.collection('egerak_activities').doc(id).delete();
-                else setActivityTypes(activityTypes.filter(a => a.id !== id));
-            };
+            // Admin Actions
+            const handleAddLocation = (name) => { if (db && !dbError) db.collection('egerak_locations').add({ name }); else setLocations([...locations, { id: Date.now().toString(), name }]); };
+            const handleDeleteLocation = (id) => { if (db && !dbError) db.collection('egerak_locations').doc(id).delete(); else setLocations(locations.filter(l => l.id !== id)); };
+            const handleAddActivity = (name) => { if (db && !dbError) db.collection('egerak_activities').add({ name }); else setActivityTypes([...activityTypes, { id: Date.now().toString(), name }]); };
+            const handleDeleteActivity = (id) => { if (db && !dbError) db.collection('egerak_activities').doc(id).delete(); else setActivityTypes(activityTypes.filter(a => a.id !== id)); };
+            const handleDeleteUser = (id) => { if (db && !dbError) db.collection('egerak_users').doc(id).delete(); else setUsers(users.filter(u => u.id !== id)); };
             
-            const handleDeleteUser = (id) => {
-                if (db && !dbError) db.collection('egerak_users').doc(id).delete();
-                else setUsers(users.filter(u => u.id !== id));
+            // NEW: Reset Password Handler
+            const handleResetUserPassword = (id, newPassword) => {
+                if (db && !dbError) {
+                    db.collection('egerak_users').doc(id).update({ password: newPassword })
+                      .then(() => alert("Kata laluan berjaya dikemaskini."))
+                      .catch(e => alert("Gagal mengemaskini kata laluan."));
+                } else {
+                    setUsers(users.map(u => u.id === id ? { ...u, password: newPassword } : u));
+                    alert("Kata laluan berjaya dikemaskini (Mod Demo).");
+                }
             };
 
             // --- COMPUTED DATA ---
             const combinedLocations = useMemo(() => {
-                // In this version, we trust the locations state because we auto-add to it on submission
-                return locations.map(l => l.name || l).sort();
-            }, [locations]);
+                const logLocs = logs.map(l => l.location).filter(Boolean);
+                const masterLocs = locations.map(l => l.name || l); 
+                return Array.from(new Set([...masterLocs, ...logLocs])).sort();
+            }, [logs, locations]);
 
             const combinedActivityTypes = useMemo(() => {
-                return activityTypes.map(l => l.name || l).sort();
-            }, [activityTypes]);
+                const logTypes = logs.map(l => l.type).filter(Boolean);
+                const masterTypes = activityTypes.map(l => l.name || l);
+                return Array.from(new Set([...masterTypes, ...logTypes])).sort();
+            }, [logs, activityTypes]);
 
             const allUsers = useMemo(() => {
                 const logUserNames = logs.map(l => l.userName);
@@ -673,7 +846,7 @@
                             <AdminDashboard 
                                 user={user} logs={relevantLogs} data={dashboardData}
                                 onAddLocation={handleAddLocation} onDeleteLocation={handleDeleteLocation}
-                                onAddActivity={handleAddActivity} onDeleteActivity={handleDeleteActivity} onDeleteUser={handleDeleteUser}
+                                onAddActivity={handleAddActivity} onDeleteActivity={handleDeleteActivity} onDeleteUser={handleDeleteUser} onResetUserPassword={handleResetUserPassword}
                                 allUsers={allUsers} combinedLocations={combinedLocations} combinedActivityTypes={combinedActivityTypes}
                             />
                         )}
